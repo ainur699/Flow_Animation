@@ -289,10 +289,11 @@ public:
 
 				for (int j = 0; j < m_offset_map.cols; j++) {
 					cv::Vec2f delta = direction * m_Tframe * p_vec[j];
-					cv::Vec2f sample;
-					//BilinInterp(offset_prev, j + delta[0], i + delta[1], &sample[0]);
-					sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
-					p_offset[j] = delta + sample;
+					//cv::Vec2f sample;
+					///BilinInterp(offset_prev, j + delta[0], i + delta[1], &sample[0]);
+					//sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
+					//p_offset[j] = delta + sample;
+					p_offset[j] += delta;
 				}
 			}
 		}
@@ -348,10 +349,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Tloop = 3.f;
-	const float Tmerge = 1.5f;
-	const float Nloop = std::floor(Tloop / Tframe / 2.f) * 2;
-	const float Nmerge = std::floor(Tmerge / Tframe / 2.f) * 2;
-	const float Nall = 2 * Nloop - 2 * Nmerge;
+	const float Nloop = std::floor(Tloop / Tframe);
 
 	//cv::Mat temp;
 	//cv::blur(high, temp, cv::Size(2, 2));
@@ -368,14 +366,13 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
 
-	for (int i = 0; i < Nall; i++) {
-		std::cout << i + 1 << " of " << Nall << std::endl;
+	flow0.Set(-1);
+	flow1.Set(-Nloop - 1);
 
-		if (i == 0) flow0.Set(Nloop / 2 - 1);
-		if (i == Nall / 2) flow0.Set(-1);
+	for (int i = 0; i < Nloop; i++) {
+		std::cout << i + 1 << " of " << Nloop << std::endl;
+
 		flow0.GetNext(wave0);
-		
-		if (i == 0) flow1.Set(-1);
 		flow1.GetNext(wave1);
 
 		low.copyTo(dst);
@@ -386,24 +383,17 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 			cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(row);
 
 			for (int col = 0; col < dst.cols; col++) {
-				cv::Vec3f f0 = p_w0[col];
-				cv::Vec3f f1 = p_w1[col];
+				cv::Vec3f f0 = /*cv::Vec3f(0,0,0);*/ p_w0[col];
+				cv::Vec3f f1 = /*cv::Vec3f(0,0,0);*/ p_w1[col];
 
-				float k;
-				if (i <= Nall / 2) {
-					k = 1.f / Nmerge * i;
-					p_dst[col] += color_blend(f0, f1, k, maxVal);
-				}
-				else {
-					k = 1.f / Nmerge * (i - Nall / 2);
-					p_dst[col] += color_blend(f1, f0, k, maxVal);
-				}
+				float k = 1.f / (Nloop - 1) * i;
+				p_dst[col] += color_blend(f0, f1, k, maxVal);
 			}
 		}
 
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
-		cv::imwrite("frames/" + std::to_string(i) + ".png", frame);
+		//cv::imwrite("frames/" + std::to_string(i) + ".png", frame);
 	}
 
 
