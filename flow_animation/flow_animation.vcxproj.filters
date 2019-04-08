@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="test_dft.cpp" />
+    <ClCompile Include="ffmpeg\video_encoder_impl.cpp">
+      <Filter>ffmpeg</Filter>
+    </ClCompile>
+    <ClCompile Include="ffmpeg\video_reader.cpp">
+      <Filter>ffmpeg</Filter>
+    </ClCompile>
+    <ClCompile Include="render\GLSLProgram.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+    <ClCompile Include="render\Texture.cpp">
+      <Filter>render</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ffmpeg">
+      <UniqueIdentifier>{7ab90eaa-a2a0-48ca-a91a-3121f7ffb92a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="render">
+      <UniqueIdentifier>{68085305-eb81-4d93-ad01-b98ab70c1685}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ffmpeg\video_encoder.h">
+      <Filter>ffmpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="ffmpeg\video_encoder_impl.h">
+      <Filter>ffmpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="ffmpeg\video_reader.h">
+      <Filter>ffmpeg</Filter>
+    </ClInclude>
+    <ClInclude Include="render\GLSLProgram.h">
+      <Filter>render</Filter>
+    </ClInclude>
+    <ClInclude Include="render\Texture.hpp">
+      <Filter>render</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
