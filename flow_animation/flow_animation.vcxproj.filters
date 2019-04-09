@@ -14,6 +14,7 @@
     <ClCompile Include="render\Texture.cpp">
       <Filter>render</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\libraries\DLIB_LIB\dlib\all\source.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ffmpeg">
