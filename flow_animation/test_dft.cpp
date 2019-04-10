@@ -298,14 +298,14 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 					p_dst[j] = dir;
 				}
 				else {
-					//float d = dir_norm.x * p_norm[j][0] + dir_norm.y * p_norm[j][1];
-					//float p = 0.45f * d + 0.55f;
-					//float x = p_dist[j] / offset;
-					//float alpha = std::pow(x, p);
-					//p_dst[j] = alpha * dir;
+					float d = dir_norm.x * p_norm[j][0] + dir_norm.y * p_norm[j][1];
+					float p = 0.45f * d + 0.55f;
+					float x = p_dist[j] / offset;
+					float alpha = std::pow(x, p);
+					p_dst[j] = alpha * dir;
 					
 					//p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
-					p_dst[j] = dir * std::min(std::pow(p_dist[j] / offset, 0.4f), 1.f);
+					//p_dst[j] = dir * std::min(std::pow(p_dist[j] / offset, 0.4f), 1.f);
 				}
 			}
 		}
@@ -469,8 +469,18 @@ public:
 				p_offset[j] = delta + sample;
 				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
 				//p_dst[j] = m_source.at<cv::Vec3f>(i + p_offset[j][1], j + p_offset[j][0]);
-#else
+#elseif 0
 				BilinInterp(m_source, j + frame * delta[0], i + frame * delta[1], &p_dst[j][0]);
+#else
+				int x = j + frame * delta[0];
+				int y = i + frame * delta[1];
+
+				if (x < dst.cols && y < dst.rows && x >= 0 && y >= 0 && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f(0, 0)) {
+					p_dst[j] = cv::Vec3f(0, 0, 0);
+				}
+				else {
+					BilinInterp(m_source, x, y, &p_dst[j][0]);
+				}
 #endif
 			}
 		}
