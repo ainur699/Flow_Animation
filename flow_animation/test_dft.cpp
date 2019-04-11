@@ -148,12 +148,9 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 				return -1;
 			}
 
-			//for (int i = 0; i < dst.rows; i++) {
-			//	for (int j = 0; j < dst.cols; j++) {
-			//		if (dst.at<uchar>(i, j) == 5) dst.at<uchar>(i, j) = 255;
-			//		else dst.at<uchar>(i, j) = 0;
-			//	}
-			//}
+#if 1
+			cv::imwrite("res_debug/mask.png", dst);
+#endif
 		}
 
 		curl_easy_cleanup(curl);
@@ -227,8 +224,6 @@ void CreateNormalMask(cv::Mat& img, cv::Subdiv2D& subdiv, std::vector<cv::Point2
 	cv::blur(img, img, cv::Size(3, 3));
 }
 
-
-
 void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, Material material)
 {
 	cv::Mat distance(mask.size(), CV_32FC1);
@@ -251,6 +246,8 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 
 		for (size_t i = 0; i < contours.size(); i++) {
 			cv::approxPolyDP(contours[i], contours[i], 3, true);
+			if (contours[i].size() < 3) contours[i].clear();
+
 			if (ContourOrientationCW(contours[i])) {
 				std::reverse(contours[i].begin(), contours[i].end());
 			}
@@ -305,6 +302,7 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 					float p = 0.45f * d + 0.55f;
 					float x = p_dist[j] / offset;
 					float alpha = std::pow(x, p);
+
 					p_dst[j] = alpha * dir;
 				}
 #endif
@@ -333,14 +331,12 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 	}
 	}
 
-#if 0
+#if 1
 	cv::Mat vec[2];
 	cv::split(dst, vec);
 	cv::magnitude(vec[0], vec[1], vec[0]);
 	cv::Mat_<uchar> show(200 / cv::norm(dir) * vec[0]);
-	cv::imwrite("VectorField.png", show);
-	cv::imshow("test", show);
-	cv::waitKey();
+	cv::imwrite("res_debug/vector_field.png", 255 * show);
 #endif
 }
 
@@ -402,11 +398,10 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 	cv::merge(hvec, high);
 	cv::merge(lvec, low);
 
-#if 0
-	cv::imshow("high", high);
-	cv::imshow("low", low);
-	cv::imshow("low+high", low + high);
-	cv::waitKey();
+#if 1
+	cv::imwrite("res_debug/fr_high.png", 255 * high);
+	cv::imwrite("res_debug/fr_low.png", 255 * low);
+	cv::imwrite("res_debug/fr_low_high.png", 255 * (low + high));
 #endif
 }
 
@@ -463,6 +458,7 @@ public:
 #else
 				float x = j + frame * delta[0];
 				float y = i + frame * delta[1];
+
 				if (p_vec[j] != cv::Vec2f() &&
 					x >= 0 && x < dst.cols && y >= 0 && y < dst.rows &&
 					m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
@@ -603,8 +599,8 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
 
-	flow0.Set(0);
-	flow1.Set(-Nloop);
+	//flow0.Set(0);
+	//flow1.Set(-Nloop);
 
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
@@ -806,7 +802,6 @@ int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
 	cv::Mat mask;
 	int res = GetMask(image, mask);
 	if (res != 0) return -1;
-	//cv::imwrite("m3.png", mask);
 #else
 	cv::Mat mask = cv::imread("m3.png", cv::ImreadModes::IMREAD_UNCHANGED);
 #endif
