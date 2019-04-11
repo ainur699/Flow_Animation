@@ -237,7 +237,7 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 	dst.create(mask.size(), CV_32FC2);
 	dst.setTo(cv::Scalar::all(0));
 
-	float offset_koeff = 0.019f;
+	float offset_koeff = 0.04;// 0.019f;
 	float offset = offset_koeff * std::min(mask.rows, mask.cols);
 
 	switch (material){
@@ -294,6 +294,9 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 
 			for (int j = 0; j < dst.cols; j++)
 			{
+#if 0
+				p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
+#else
 				if (p_dist[j] >= offset) {
 					p_dst[j] = dir;
 				}
@@ -303,10 +306,8 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 					float x = p_dist[j] / offset;
 					float alpha = std::pow(x, p);
 					p_dst[j] = alpha * dir;
-					
-					//p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
-					//p_dst[j] = dir * std::min(std::pow(p_dist[j] / offset, 0.4f), 1.f);
 				}
+#endif
 			}
 		}
 
@@ -320,14 +321,12 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 
 
 		for (int i = 0; i < dst.rows; i++) {
-			cv::Vec2f *p = dst.ptr<cv::Vec2f>(i);
-			float *d = distance.ptr<float>(i);
+			cv::Vec2f *p_dst	= dst.ptr<cv::Vec2f>(i);
+			float *p_dist		= distance.ptr<float>(i);
 
 			for (int j = 0; j < dst.cols; j++)
 			{
-				//
-				p[j] = dir * std::min(d[j] / offset, 1.f);
-				//p[j] = d[j] ? direction : cv::Vec2f(0, 0);
+				p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
 			}
 		}
 		break;
@@ -338,7 +337,7 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 	cv::Mat vec[2];
 	cv::split(dst, vec);
 	cv::magnitude(vec[0], vec[1], vec[0]);
-	cv::Mat_<uchar> show(200 / cv::norm(direction) * vec[0]);
+	cv::Mat_<uchar> show(200 / cv::norm(dir) * vec[0]);
 	cv::imwrite("VectorField.png", show);
 	cv::imshow("test", show);
 	cv::waitKey();
@@ -436,20 +435,15 @@ public:
 
 				for (int j = 0; j < m_offset_map.cols; j++) {
 					cv::Vec2f delta = direction * m_Tframe * p_vec[j];
-#if 1
-					cv::Vec2f sample;
-					///BilinInterp(offset_prev, j + delta[0], i + delta[1], &sample[0]);
-					sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
-					p_offset[j] = delta + sample;
-#else
-					p_offset[j] += delta;
-#endif
+
+					cv::Vec2f sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
+					p_offset[j] = sample + delta;
 				}
 			}
 		}
 	}
 
-	void GetNext(cv::Mat &dst, int frame)
+	void GetNext(cv::Mat &dst, int frame = 0)
 	{
 		cv::Mat offset_prev = m_offset_map.clone();
 
@@ -462,25 +456,12 @@ public:
 				cv::Vec2f delta = -m_Tframe * p_vec[j];
 				
 #if 0
-				cv::Vec2f sample;
-				//BilinInterp(offset_prev, j + delta[0], i + delta[1], &sample[0]);
-				sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
-
+				cv::Vec2f sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
 				p_offset[j] = delta + sample;
-				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
-				//p_dst[j] = m_source.at<cv::Vec3f>(i + p_offset[j][1], j + p_offset[j][0]);
-#elseif 0
-				BilinInterp(m_source, j + frame * delta[0], i + frame * delta[1], &p_dst[j][0]);
-#else
-				int x = j + frame * delta[0];
-				int y = i + frame * delta[1];
 
-				if (x < dst.cols && y < dst.rows && x >= 0 && y >= 0 && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f(0, 0)) {
-					p_dst[j] = cv::Vec3f(0, 0, 0);
-				}
-				else {
-					BilinInterp(m_source, x, y, &p_dst[j][0]);
-				}
+				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
+#else
+				BilinInterp(m_source, j + frame * delta[0], i + frame * delta[1], &p_dst[j][0]);
 #endif
 			}
 		}
@@ -612,11 +593,19 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
 
+	flow0.Set(0);
+	flow1.Set(-Nloop);
+
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
 
+#if 0
+		flow0.GetNext(wave0);
+		flow1.GetNext(wave1);
+#else
 		flow0.GetNext(wave0, i);
-		flow1.GetNext(wave1, i - Nloop);
+		flow1.GetNext(wave1, -Nloop + 1 + i);
+#endif
 
 		low.copyTo(dst);
 
@@ -626,8 +615,8 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 			cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(row);
 
 			for (int col = 0; col < dst.cols; col++) {
-				cv::Vec3f f0 = /*cv::Vec3f(0,0,0);*/ p_w0[col];
-				cv::Vec3f f1 = /*cv::Vec3f(0,0,0);*/ p_w1[col];
+				cv::Vec3f f0 = /*cv::Vec3f();*/ p_w0[col];
+				cv::Vec3f f1 = /*cv::Vec3f();*/ p_w1[col];
 
 				float k = 1.f / (Nloop - 1.f) * i;
 				p_dst[col] += color_blend(f0, f1, k, maxVal);
@@ -645,7 +634,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	IVideo_Encoder *encoder = video_encoder_create();
 	encoder->Init(&writer, src.cols, src.rows, fps, 4000000);
 
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 1; i++) {
 		for (int j = 0; j < video.size(); j++) {
 			unsigned char *p = video[j].ptr(0, 0);
 			encoder->Addframe(p, video[j].step, 1);
@@ -842,8 +831,8 @@ int main(int argc, char **argv)
 	int count = 0;
 
 	for (; it != end; it++) {
-		cv::Mat image = cv::imread(it->path().string());
-		//cv::Mat image = cv::imread("image2.jpg");
+		//cv::Mat image = cv::imread(it->path().string());
+		cv::Mat image = cv::imread("image2.jpg");
 		if (image.empty()) continue;
 
 		std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
@@ -857,6 +846,7 @@ int main(int argc, char **argv)
 		std::string out_name = "results/" + fname + ".mp4";
 
 		process(image, direction, out_name);
+		exit(0);
 	std::cout << ++count << "images processed" << std::endl;
 	}
 
