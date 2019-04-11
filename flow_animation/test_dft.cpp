@@ -153,10 +153,6 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 				std::cout << std::string(buf.begin(), buf.end()) << std::endl;
 				return -1;
 			}
-
-#if 1
-			cv::imwrite("res_debug/mask.png", dst);
-#endif
 		}
 
 		curl_easy_cleanup(curl);
@@ -425,9 +421,9 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 	cv::merge(lvec, low);
 
 #if 1
-	cv::imwrite("res_debug/fr_high.png", 255 * high);
-	cv::imwrite("res_debug/fr_low.png", 255 * low);
-	cv::imwrite("res_debug/fr_low_high.png", 255 * (low + high));
+	cv::imwrite("res_debug/fr_high.png", 255.0 * high);
+	cv::imwrite("res_debug/fr_low.png", 255.0 * low);
+	cv::imwrite("res_debug/fr_low_high.png", 255.0 * (low + high));
 #endif
 }
 
@@ -477,12 +473,7 @@ public:
 			for (int j = 0; j < m_offset_map.cols; j++) {
 				cv::Vec2f delta = -m_Tframe * p_vec[j];
 				
-#if 0
-				cv::Vec2f sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
-				p_offset[j] = delta + sample;
-
-				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
-#else
+#if 1
 				float x = j + frame * delta[0];
 				float y = i + frame * delta[1];
 
@@ -499,9 +490,14 @@ public:
 
 					if (color1 != cv::Vec3f()) {
 						float k = m_opacity_map.at<float>(y, x);
-						p_dst[j] =  (1 - k) * color2 + k * color1;
+						p_dst[j] = (1 - k) * color2 + k * color1;
 					}
 				}
+#else
+				cv::Vec2f sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
+				p_offset[j] = delta + sample;
+
+				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
 #endif
 			}
 		}
@@ -548,9 +544,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
 
-	//flow0.Set(0);
-	//flow1.Set(-Nloop);
-
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
 
@@ -570,8 +563,8 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 			cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(row);
 
 			for (int col = 0; col < dst.cols; col++) {
-				cv::Vec3f f0 = /*cv::Vec3f();*/ p_w0[col];
-				cv::Vec3f f1 = /*cv::Vec3f();*/ p_w1[col];
+				cv::Vec3f f0 = p_w0[col];
+				cv::Vec3f f1 = p_w1[col];
 
 				float k = 1.f / (Nloop - 1.f) * i;
 				p_dst[col] += color_blend(f0, f1, k, maxVal);
@@ -783,7 +776,7 @@ int main(int argc, char **argv)
 	std::filesystem::directory_iterator it(dir), end;
 	int count = 0;
 
-#define BAD_IMAGES
+//#define BAD_IMAGES
 	std::vector<std::string> bad_images = { "0013.jpg" };
 
 	
