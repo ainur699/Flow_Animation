@@ -230,15 +230,17 @@ void CreateNormalMask(cv::Mat& img, cv::Subdiv2D& subdiv, std::vector<cv::Point2
 	cv::blur(img, img, cv::Size(3, 3));
 }
 
-void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, Material material)
+void CreateVectorField(cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &dst, cv::Point2f dir, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, Material material)
 {
 	cv::Mat distance(mask.size(), CV_32FC1);
 	cv::distanceTransform(mask, distance, cv::DistanceTypes::DIST_L2, cv::DIST_MASK_PRECISE);
 
 	dst.create(mask.size(), CV_32FC2);
 	dst.setTo(cv::Scalar::all(0));
+	opacity_map.create(mask.size(), CV_32FC1);
+	opacity_map.setTo(cv::Scalar::all(1));
 
-	float offset_koeff = 0.04;// 0.019f;
+	float offset_koeff = 0.02f;
 	float offset = offset_koeff * std::min(mask.rows, mask.cols);
 
 	switch (material){
@@ -294,23 +296,38 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 			cv::Vec2f *p_dst	= dst.ptr<cv::Vec2f>(i);
 			cv::Vec2f *p_norm	= normal_mask.ptr<cv::Vec2f>(i);
 			float *p_dist		= distance.ptr<float>(i);
+			float *p_op			= opacity_map.ptr<float>(i);
 
 			for (int j = 0; j < dst.cols; j++)
 			{
-#if 0
-				p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
-#else
+#if 1
 				if (p_dist[j] >= offset) {
 					p_dst[j] = dir;
+					p_op[j] = 1;
 				}
 				else {
 					float d = dir_norm.x * p_norm[j][0] + dir_norm.y * p_norm[j][1];
 					float p = 0.45f * d + 0.55f;
 					float x = p_dist[j] / offset;
 					float alpha = std::pow(x, p);
-
 					p_dst[j] = alpha * dir;
+
+					if (p_dist[j] == 0) {
+						p_op[j] = 1;
+					}
+					else {
+						float p2 = -0.45f * d + 0.55f;
+						float alpha2 = std::pow(x, p2);
+						p_op[j] = alpha2;
+					}
 				}
+
+				uchar m_mal = std::min(std::min(i, j), std::min(dst.rows - i, dst.cols - j));
+				if (m_mal < offset) {
+					p_op[j] *= m_mal / offset;
+				}
+#else
+				p_dst[j] = dir * std::min(p_dist[j] / offset, 1.f);
 #endif
 			}
 		}
@@ -342,7 +359,10 @@ void CreateVectorField(const cv::Mat &mask, cv::Mat &dst, cv::Point2f dir, std::
 	cv::split(dst, vec);
 	cv::magnitude(vec[0], vec[1], vec[0]);
 	cv::Mat_<uchar> show(200 / cv::norm(dir) * vec[0]);
-	cv::imwrite("res_debug/vector_field.png", 255 * show);
+	cv::imwrite("res_debug/vector_field.png", show);
+
+	cv::Mat_<uchar> opacity_mat(255 * opacity_map);
+	cv::imwrite("res_debug/opacity_map.png", opacity_mat);
 #endif
 }
 
@@ -414,8 +434,8 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 class FlowModel
 {
 public:
-	FlowModel(cv::Mat &img, cv::Mat &velocity_map, float frame_time)
-		: m_source(img), m_velicity_map(velocity_map), m_Tframe(frame_time)
+	FlowModel(cv::Mat &img, cv::Mat &velocity_map, cv::Mat &opacity_map, float frame_time)
+		: m_source(img), m_velicity_map(velocity_map), m_Tframe(frame_time), m_opacity_map(opacity_map)
 	{
 		m_offset_map.create(img.size(), CV_32FC2);
 		m_offset_map.setTo(cv::Scalar::all(0));
@@ -452,6 +472,7 @@ public:
 			cv::Vec2f *p_vec = m_velicity_map.ptr<cv::Vec2f>(i);
 			cv::Vec2f *p_offset = m_offset_map.ptr<cv::Vec2f>(i);
 			cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(i);
+			cv::Vec3f *p_src = m_source.ptr<cv::Vec3f>(i);
 
 			for (int j = 0; j < m_offset_map.cols; j++) {
 				cv::Vec2f delta = -m_Tframe * p_vec[j];
@@ -465,14 +486,21 @@ public:
 				float x = j + frame * delta[0];
 				float y = i + frame * delta[1];
 
-				if (p_vec[j] != cv::Vec2f() &&
-					x >= 0 && x < dst.cols && y >= 0 && y < dst.rows &&
-					m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
-					BilinInterp(m_source, x, y, &p_dst[j][0]);
-					p_dst[j] = cv::Vec3f();
+				if (x < 0 || x >= dst.cols || y < 0 || y >= dst.rows) {
+					p_dst[j] = p_src[j];
+				}
+				else if (p_vec[j] != cv::Vec2f() && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+					p_dst[j] = p_src[j];
 				}
 				else {
-					BilinInterp(m_source, x, y, &p_dst[j][0]);
+					cv::Vec3f color1, color2;
+					BilinInterp(m_source, x, y, &color1[0]);
+					color2 = p_src[j];
+
+					if (color1 != cv::Vec3f()) {
+						float k = m_opacity_map.at<float>(y, x);
+						p_dst[j] =  (1 - k) * color2 + k * color1;
+					}
 				}
 #endif
 			}
@@ -484,6 +512,7 @@ public:
 	cv::Mat m_source;
 	cv::Mat m_offset_map;
 	cv::Mat m_velicity_map;
+	cv::Mat m_opacity_map;
 	float m_Tframe;
 };
 
@@ -502,100 +531,14 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 	return dst;
 }
 
-void BilinInterp2(const cv::Mat &I, double x, double y, cv::Vec3f &dst)
-{
-	int x1 = (int)std::floor(x);
-	int y1 = (int)std::floor(y);
-	int x2 = (int)std::ceil(x);
-	int y2 = (int)std::ceil(y);
-	if (x1 < 0 || x2 >= I.cols || y1 < 0 || y2 >= I.rows) return;
-
-	const float *p1 = I.ptr<float>(y1, x1);
-	const float *p2 = I.ptr<float>(y1, x2);
-	const float *p3 = I.ptr<float>(y2, x1);
-	const float *p4 = I.ptr<float>(y2, x2);
-
-	for (int i = 0; i < 3; i++)
-	{
-		float c1 = p1[i] + (p2[i] - p1[i]) * (x - x1);
-		float c2 = p3[i] + (p4[i] - p3[i]) * (x - x1);
-		dst[i] = c1 + (c2 - c1) * (y - y1);
-	}
-}
-
-void MirrorImage(cv::Mat &image, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, float dist)
-{
-	struct Tri {
-		cv::Point2f v1, v2, v3;
-	};
-
-	std::vector<Tri> src, dst;
-
-	for (size_t i = 0; i < contour_points.size(); i++) {
-		const cv::Point2f &v1 = contour_points[i];
-		const cv::Point2f &v2 = contour_points[(i + 1) % contour_points.size()];
-
-		const cv::Point2f &n1 = normals_points[i];
-		const cv::Point2f &n2 = normals_points[(i + 1) % contour_points.size()];
-
-		cv::Point v1_top = v1 + dist * n1;
-		cv::Point v2_top = v2 + dist * n2;
-		cv::Point v1_down = v1 - dist * n1;
-		cv::Point v2_down = v2 - dist * n2;
-
-		Tri tri1_top{ v1, v2, v1_top };
-		Tri tri2_top{ v1, v2_top, v1_top };
-		Tri tri2_down{ v1, v2_down, v1_down };
-		Tri tri1_down{ v1, v2, v1_down };
-
-		dst.push_back(tri1_top);
-		dst.push_back(tri2_top);
-		src.push_back(tri2_down);
-		src.push_back(tri1_down);
-	}
-
-	for (size_t t = 0; t < src.size(); t++)
-	{
-		const Tri &s = src[t];
-		const Tri &d = dst[t];
-
-		cv::Mat1d A(3, 3);  A << d.v1.x, d.v2.x, d.v3.x, d.v1.y, d.v2.y, d.v3.y, 1, 1, 1;
-		cv::Mat1d B(3, 3);  B << s.v1.x, s.v2.x, s.v3.x, s.v1.y, s.v2.y, s.v3.y, 1, 1, 1;
-
-		cv::Mat1d M = B * A.inv();
-		double *affine = M.ptr<double>();
-
-		int xmax = std::ceil(std::max(std::max(d.v1.x, d.v2.x), d.v3.x));
-		int ymax = std::ceil(std::max(std::max(d.v1.y, d.v2.y), d.v3.y));
-		int xmin = std::floor(std::min(std::min(d.v1.x, d.v2.x), d.v3.x));
-		int ymin = std::floor(std::min(std::min(d.v1.y, d.v2.y), d.v3.y));
-		if (xmax > image.cols - 1) xmax = image.cols - 1;
-		if (ymax > image.rows - 1) ymax = image.rows - 1;
-		if (xmin < 0) xmin = 0;
-		if (ymin < 0) ymin = 0;
-
-		for (int i = ymin; i <= ymax; i++)
-		{
-			cv::Vec3f *p_dst = image.ptr<cv::Vec3f>(i);
-
-			for (int j = xmin; j <= xmax; j++)
-			{
-				double x = affine[0] * j + affine[1] * i + affine[2];
-				double y = affine[3] * j + affine[4] * i + affine[5];
-				BilinInterp2(image, x, y, p_dst[j]);
-			}
-		}
-	}
-}
-
-void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop)
+void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop)
 {
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
 
-	FlowModel flow0(high, field_map, Tframe);
-	FlowModel flow1(high, field_map, Tframe);
+	FlowModel flow0(high, field_map, opacity_map, Tframe);
+	FlowModel flow1(high, field_map, opacity_map, Tframe);
 	cv::Mat wave0(src.size(), src.type()), wave1(src.size(), src.type());
 	cv::Mat dst(src.size(), src.type());
 	cv::Mat frame(src.size(), CV_8UC3);
@@ -637,7 +580,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
-		//cv::imwrite("frames/" + std::to_string(i) + ".png", frame);
 	}
 
 
@@ -813,17 +755,17 @@ int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
 #endif
 
 	cv::Mat velocity_field;
+	cv::Mat opacity_map;
 	std::vector<cv::Point2f> contours_points, normals_points;
-	CreateVectorField(mask, velocity_field, dir, contours_points, normals_points, Material::HAIR);
+	CreateVectorField(mask, opacity_map, velocity_field, dir, contours_points, normals_points, Material::HAIR);
 
 	cv::Mat high, low;
-	FrequencyDec(fimg, 0.1f, 0.04f, high, low);
+	FrequencyDec(fimg, 0.07f, 0.04f, high, low);
 
 	float Tloop = 2.5f;
 	float dist = Tloop * cv::norm(dir);
-	//MirrorImage(high, contours_points, normals_points, dist);
 
-	PhotoLoop(fimg, mask, high, low, velocity_field, out_name, Tloop);
+	PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
 }
 
 int main(int argc, char **argv)
@@ -841,9 +783,20 @@ int main(int argc, char **argv)
 	std::filesystem::directory_iterator it(dir), end;
 	int count = 0;
 
+#define BAD_IMAGES
+	std::vector<std::string> bad_images = { "0013.jpg" };
+
+	
+#ifdef BAD_IMAGES
+	for(size_t i = 0; i < bad_images.size(); i++) {
+		cv::Mat image = cv::imread("C:/Users/Ainur/Desktop/Data/TestImages/" + bad_images[i]);
+		std::string fname = bad_images[i];
+#else
 	for (; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());
-		//cv::Mat image = cv::imread("image2.jpg");
+		std::string fname = it->path().filename().string();
+#endif
+	
 		if (image.empty()) continue;
 
 		std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
@@ -853,13 +806,97 @@ int main(int argc, char **argv)
 
 		cv::Vec2f direction(points.part(33).x() - points.part(27).x(), points.part(33).y() - points.part(27).y());
 		direction = 0.042f * faces_dlib[0].height() * direction / cv::norm(direction);
-		std::string fname = it->path().filename().string();
 		std::string out_name = "results/" + fname + ".mp4";
 
 		process(image, direction, out_name);
-		//exit(0);
-	std::cout << ++count << "images processed" << std::endl;
+		std::cout << ++count << "images processed" << std::endl;
 	}
 
 	return 0;
+}
+
+void BilinInterp2(const cv::Mat &I, double x, double y, cv::Vec3f &dst)
+{
+	int x1 = (int)std::floor(x);
+	int y1 = (int)std::floor(y);
+	int x2 = (int)std::ceil(x);
+	int y2 = (int)std::ceil(y);
+	if (x1 < 0 || x2 >= I.cols || y1 < 0 || y2 >= I.rows) return;
+
+	const float *p1 = I.ptr<float>(y1, x1);
+	const float *p2 = I.ptr<float>(y1, x2);
+	const float *p3 = I.ptr<float>(y2, x1);
+	const float *p4 = I.ptr<float>(y2, x2);
+
+	for (int i = 0; i < 3; i++)
+	{
+		float c1 = p1[i] + (p2[i] - p1[i]) * (x - x1);
+		float c2 = p3[i] + (p4[i] - p3[i]) * (x - x1);
+		dst[i] = c1 + (c2 - c1) * (y - y1);
+	}
+}
+
+void MirrorImage(cv::Mat &image, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, float dist)
+{
+	struct Tri {
+		cv::Point2f v1, v2, v3;
+	};
+
+	std::vector<Tri> src, dst;
+
+	for (size_t i = 0; i < contour_points.size(); i++) {
+		const cv::Point2f &v1 = contour_points[i];
+		const cv::Point2f &v2 = contour_points[(i + 1) % contour_points.size()];
+
+		const cv::Point2f &n1 = normals_points[i];
+		const cv::Point2f &n2 = normals_points[(i + 1) % contour_points.size()];
+
+		cv::Point v1_top = v1 + dist * n1;
+		cv::Point v2_top = v2 + dist * n2;
+		cv::Point v1_down = v1 - dist * n1;
+		cv::Point v2_down = v2 - dist * n2;
+
+		Tri tri1_top{ v1, v2, v1_top };
+		Tri tri2_top{ v1, v2_top, v1_top };
+		Tri tri2_down{ v1, v2_down, v1_down };
+		Tri tri1_down{ v1, v2, v1_down };
+
+		dst.push_back(tri1_top);
+		dst.push_back(tri2_top);
+		src.push_back(tri2_down);
+		src.push_back(tri1_down);
+	}
+
+	for (size_t t = 0; t < src.size(); t++)
+	{
+		const Tri &s = src[t];
+		const Tri &d = dst[t];
+
+		cv::Mat1d A(3, 3);  A << d.v1.x, d.v2.x, d.v3.x, d.v1.y, d.v2.y, d.v3.y, 1, 1, 1;
+		cv::Mat1d B(3, 3);  B << s.v1.x, s.v2.x, s.v3.x, s.v1.y, s.v2.y, s.v3.y, 1, 1, 1;
+
+		cv::Mat1d M = B * A.inv();
+		double *affine = M.ptr<double>();
+
+		int xmax = std::ceil(std::max(std::max(d.v1.x, d.v2.x), d.v3.x));
+		int ymax = std::ceil(std::max(std::max(d.v1.y, d.v2.y), d.v3.y));
+		int xmin = std::floor(std::min(std::min(d.v1.x, d.v2.x), d.v3.x));
+		int ymin = std::floor(std::min(std::min(d.v1.y, d.v2.y), d.v3.y));
+		if (xmax > image.cols - 1) xmax = image.cols - 1;
+		if (ymax > image.rows - 1) ymax = image.rows - 1;
+		if (xmin < 0) xmin = 0;
+		if (ymin < 0) ymin = 0;
+
+		for (int i = ymin; i <= ymax; i++)
+		{
+			cv::Vec3f *p_dst = image.ptr<cv::Vec3f>(i);
+
+			for (int j = xmin; j <= xmax; j++)
+			{
+				double x = affine[0] * j + affine[1] * i + affine[2];
+				double y = affine[3] * j + affine[4] * i + affine[5];
+				BilinInterp2(image, x, y, p_dst[j]);
+			}
+		}
+	}
 }
