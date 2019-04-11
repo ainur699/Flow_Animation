@@ -461,7 +461,16 @@ public:
 
 				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
 #else
-				BilinInterp(m_source, j + frame * delta[0], i + frame * delta[1], &p_dst[j][0]);
+				float x = j + frame * delta[0];
+				float y = i + frame * delta[1];
+				if (p_vec[j] != cv::Vec2f() &&
+					x >= 0 && x < dst.cols && y >= 0 && y < dst.rows &&
+					m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+					p_dst[j] = cv::Vec3f();
+				}
+				else {
+					BilinInterp(m_source, x, y, &p_dst[j][0]);
+				}
 #endif
 			}
 		}
@@ -831,8 +840,8 @@ int main(int argc, char **argv)
 	int count = 0;
 
 	for (; it != end; it++) {
-		//cv::Mat image = cv::imread(it->path().string());
-		cv::Mat image = cv::imread("image2.jpg");
+		cv::Mat image = cv::imread(it->path().string());
+		//cv::Mat image = cv::imread("image2.jpg");
 		if (image.empty()) continue;
 
 		std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
@@ -846,7 +855,7 @@ int main(int argc, char **argv)
 		std::string out_name = "results/" + fname + ".mp4";
 
 		process(image, direction, out_name);
-		exit(0);
+		//exit(0);
 	std::cout << ++count << "images processed" << std::endl;
 	}
 
