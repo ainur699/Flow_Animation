@@ -25,7 +25,13 @@ void BilinInterp(const cv::Mat &I, double x, double y, Type *dst)
 	int y1 = (int)std::floor(y);
 	int x2 = (int)std::ceil(x);
 	int y2 = (int)std::ceil(y);
-	if (x1 < 0 || x2 >= I.cols || y1 < 0 || y2 >= I.rows) return;
+	if (x1 < 0 || x2 >= I.cols || y1 < 0 || y2 >= I.rows) {
+		for (int i = 0; i < I.channels(); i++)
+		{
+			*dst++ = (Type)0.0;
+		}
+		return;
+	};
 
 	const Type *p1 = (Type*)I.ptr(y1, x1);
 	const Type *p2 = (Type*)I.ptr(y1, x2);
@@ -640,7 +646,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 	IVideo_Encoder *encoder = video_encoder_create();
 	encoder->Init(&writer, src.cols, src.rows, fps, 4000000);
 
-	for (int i = 0; i < 1; i++) {
+	for (int i = 0; i < 2; i++) {
 		for (int j = 0; j < video.size(); j++) {
 			unsigned char *p = video[j].ptr(0, 0);
 			encoder->Addframe(p, video[j].step, 1);
