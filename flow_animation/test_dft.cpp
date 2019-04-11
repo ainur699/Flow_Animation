@@ -466,6 +466,7 @@ public:
 				if (p_vec[j] != cv::Vec2f() &&
 					x >= 0 && x < dst.cols && y >= 0 && y < dst.rows &&
 					m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+					BilinInterp(m_source, x, y, &p_dst[j][0]);
 					p_dst[j] = cv::Vec3f();
 				}
 				else {
@@ -613,7 +614,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &high, cv::Mat &low, cv::Mat
 		flow1.GetNext(wave1);
 #else
 		flow0.GetNext(wave0, i);
-		flow1.GetNext(wave1, -Nloop + 1 + i);
+		flow1.GetNext(wave1, -Nloop + i);
 #endif
 
 		low.copyTo(dst);
@@ -815,9 +816,9 @@ int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
 	CreateVectorField(mask, velocity_field, dir, contours_points, normals_points, Material::HAIR);
 
 	cv::Mat high, low;
-	FrequencyDec(fimg, 0.08f, 0.04f, high, low);
+	FrequencyDec(fimg, 0.1f, 0.04f, high, low);
 
-	float Tloop = 3.f;
+	float Tloop = 2.5f;
 	float dist = Tloop * cv::norm(dir);
 	//MirrorImage(high, contours_points, normals_points, dist);
 
@@ -850,7 +851,7 @@ int main(int argc, char **argv)
 		
 
 		cv::Vec2f direction(points.part(33).x() - points.part(27).x(), points.part(33).y() - points.part(27).y());
-		direction = 0.039f * faces_dlib[0].height() * direction / cv::norm(direction);
+		direction = 0.042f * faces_dlib[0].height() * direction / cv::norm(direction);
 		std::string fname = it->path().filename().string();
 		std::string out_name = "results/" + fname + ".mp4";
 
