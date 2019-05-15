@@ -18,6 +18,12 @@
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing.h>
 
+enum class Material
+{
+	WATER, HAIR, SKY, TREE
+};
+
+
 template<class Type>
 void BilinInterp(const cv::Mat &I, double x, double y, Type *dst)
 {
@@ -87,7 +93,7 @@ size_t read_callback(void *dest, size_t size, size_t nmemb, void *userp)
 	return 0;
 }
 
-int GetMask(const cv::Mat &src, cv::Mat &dst)
+int GetMask(const cv::Mat &src, cv::Mat &dst, Material material)
 {
 	CURLcode res;
 
@@ -104,12 +110,15 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 	std::vector<uchar> img_data;
 	cv::imencode(".jpg", src, img_data);
 
-	curl_formadd(&formpost,
-		&lastptr,
-		CURLFORM_COPYNAME, "detector",
-		CURLFORM_COPYCONTENTS, "hair",
-		CURLFORM_END
-	);
+	if (material == Material::HAIR)
+	{
+		curl_formadd(&formpost,
+			&lastptr,
+			CURLFORM_COPYNAME, "detector",
+			CURLFORM_COPYCONTENTS, "hair",
+			CURLFORM_END
+		);
+	}
 
 	curl_formadd(&formpost,
 		&lastptr,
@@ -137,8 +146,18 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 
 	if (curl) {
 		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-		//curl_easy_setopt(curl, CURLOPT_URL, "http://67.228.246.51:8056/forward");
-		curl_easy_setopt(curl, CURLOPT_URL, "http://admin:show-me-viewer@exp.ws.pho.to/viewer/detect-blob");
+
+		switch (material) {
+		case Material::HAIR: {
+			curl_easy_setopt(curl, CURLOPT_URL, "http://admin:show-me-viewer@exp.ws.pho.to/viewer/detect-blob");
+			break;
+		}
+		case Material::WATER: {
+			curl_easy_setopt(curl, CURLOPT_URL, "http://67.228.246.51:8056/forward");
+			break;
+		}
+		}
+
 		curl_easy_setopt(curl, CURLOPT_HTTPPOST, formpost);
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result_chunk);
@@ -148,6 +167,16 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 		if (res == CURLE_OK) {
 			std::vector<uchar> buf(result_chunk.memory, result_chunk.memory + result_chunk.size);
 			dst = cv::imdecode(buf, cv::ImreadModes::IMREAD_UNCHANGED);
+
+			if (material == Material::WATER) {
+				for (int i = 0; i < dst.rows; i++) {
+					uchar *p_im = dst.ptr<uchar>(i);
+					for (int j = 0; j < dst.cols; j++) {
+						*p_im = (*p_im == 5) ? 255 : 0;
+						p_im++;
+					}
+				}
+			}
 
 			if (dst.empty()) {
 				std::cout << std::string(buf.begin(), buf.end()) << std::endl;
@@ -164,11 +193,6 @@ int GetMask(const cv::Mat &src, cv::Mat &dst)
 
 	return res;
 }
-
-enum class Material
-{
-	WATER, HAIR, SKY, TREE
-};
 
 bool ContourOrientationCW(const std::vector<cv::Point>& contour) {
 	if (contour.size() >= 3) {
@@ -746,7 +770,7 @@ int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
 
 #if 1
 	cv::Mat mask;
-	int res = GetMask(image, mask);
+	int res = GetMask(image, mask, Material::HAIR);
 	if (res != 0) return -1;
 #else
 	cv::Mat mask = cv::imread("m3.png", cv::ImreadModes::IMREAD_UNCHANGED);
@@ -768,15 +792,19 @@ int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
 
 int main(int argc, char **argv)
 {
-	dlib::frontal_face_detector	dlib_detector = dlib::get_frontal_face_detector();
+	Material material = Material::WATER;
+
+	dlib::frontal_face_detector	dlib_detector;
 	dlib::shape_predictor pose_model;
-	try { dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model; }
-	catch (...) { return -1; }
 
-	std::filesystem::path dir("C:/Users/Ainur/Desktop/Data/TestImages");
+	if (material == Material::HAIR) {
+		dlib_detector = dlib::get_frontal_face_detector();
+		try { dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model; }
+		catch (...) { return -1; }
+	}
+
+	std::filesystem::path dir("C:/Users/Ainur/Desktop/flow_animation/flow_animation/water");
 	std::filesystem::directory_iterator it(dir), end;
-
-	Material material = Material::HAIR;
 
 	for (int count = 0; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());
@@ -796,13 +824,46 @@ int main(int argc, char **argv)
 			cv::Vec2f direction(points.part(33).x() - points.part(27).x(), points.part(33).y() - points.part(27).y());
 			direction = 0.042f * faces_dlib[0].height() * direction / cv::norm(direction);
 
-			process(image, direction, out_name);
+			cv::Mat fimg;
+			image.convertTo(fimg, CV_32FC3, 1 / 255.0);
+
+			cv::Mat mask;
+			int res = GetMask(image, mask, material);
+			if (res != 0) return -1;
+
+			cv::Mat velocity_field;
+			cv::Mat opacity_map;
+			std::vector<cv::Point2f> contours_points, normals_points;
+			CreateVectorField(mask, opacity_map, velocity_field, direction, contours_points, normals_points, Material::HAIR);
+
+			cv::Mat high, low;
+			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
+
+			float Tloop = 2.5f;
+			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
 			break;
 		}
 		case Material::WATER:
 		{
+			cv::Vec2f direction(image.cols * 0.015f, 0);
 			
+			cv::Mat fimg;
+			image.convertTo(fimg, CV_32FC3, 1 / 255.0);
 
+			cv::Mat mask;
+			int res = GetMask(image, mask, material);
+			if (res != 0) return -1;
+
+			cv::Mat velocity_field;
+			cv::Mat opacity_map;
+			std::vector<cv::Point2f> contours_points, normals_points;
+			CreateVectorField(mask, opacity_map, velocity_field, direction, contours_points, normals_points, Material::HAIR);
+
+			cv::Mat high, low;
+			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
+
+			float Tloop = 2.5f;
+			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
 
 			break;
 		}
