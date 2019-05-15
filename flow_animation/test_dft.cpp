@@ -312,13 +312,18 @@ void CreateVectorField(cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &dst, cv::Po
 						p_op[j] = 1;
 					}
 					else {
-						float p2 = -0.45f * d + 0.55f;
-						float alpha2 = std::pow(x, p2);
-						p_op[j] = alpha2;
+						if (d >= 0) {
+							p_op[j] = 1.f;
+						}
+						else {
+							float p2 = -0.45f * d + 0.55f;
+							float alpha2 = std::pow(x, p2);
+							p_op[j] = alpha2;
+						}
 					}
 				}
 
-				uchar m_mal = std::min(std::min(i, j), std::min(dst.rows - i, dst.cols - j));
+				int m_mal = std::min(std::min(i, j), std::min(dst.rows - i, dst.cols - j));
 				if (m_mal < offset) {
 					p_op[j] *= m_mal / offset;
 				}
@@ -581,7 +586,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	IVideo_Encoder *encoder = video_encoder_create();
 	encoder->Init(&writer, src.cols, src.rows, fps, 4000000);
 
-	for (int i = 0; i < 2; i++) {
+	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < video.size(); j++) {
 			unsigned char *p = video[j].ptr(0, 0);
 			encoder->Addframe(p, video[j].step, 1);
@@ -765,131 +770,47 @@ int main(int argc, char **argv)
 {
 	dlib::frontal_face_detector	dlib_detector = dlib::get_frontal_face_detector();
 	dlib::shape_predictor pose_model;
-	try {
-		dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model;
-	}
-	catch (...) {
-		return -1;
-	}
+	try { dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model; }
+	catch (...) { return -1; }
 
 	std::filesystem::path dir("C:/Users/Ainur/Desktop/Data/TestImages");
 	std::filesystem::directory_iterator it(dir), end;
-	int count = 0;
 
-//#define BAD_IMAGES
-	std::vector<std::string> bad_images = { "0013.jpg" };
+	Material material = Material::HAIR;
 
-	
-#ifdef BAD_IMAGES
-	for(size_t i = 0; i < bad_images.size(); i++) {
-		cv::Mat image = cv::imread("C:/Users/Ainur/Desktop/Data/TestImages/" + bad_images[i]);
-		std::string fname = bad_images[i];
-#else
-	for (; it != end; it++) {
+	for (int count = 0; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());
-		std::string fname = it->path().filename().string();
-#endif
-	
 		if (image.empty()) continue;
 
-		std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
-		if (faces_dlib.empty()) continue;
-		dlib::full_object_detection	points = pose_model(dlib::cv_image<dlib::bgr_pixel>(image), faces_dlib[0]);
-		
-
-		cv::Vec2f direction(points.part(33).x() - points.part(27).x(), points.part(33).y() - points.part(27).y());
-		direction = 0.042f * faces_dlib[0].height() * direction / cv::norm(direction);
+		std::string fname = it->path().filename().string();
 		std::string out_name = "results/" + fname + ".mp4";
 
-		process(image, direction, out_name);
+		switch (material) {
+		case Material::HAIR:
+		{
+			std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
+			if (faces_dlib.empty()) continue;
+			dlib::full_object_detection	points = pose_model(dlib::cv_image<dlib::bgr_pixel>(image), faces_dlib[0]);
+
+
+			cv::Vec2f direction(points.part(33).x() - points.part(27).x(), points.part(33).y() - points.part(27).y());
+			direction = 0.042f * faces_dlib[0].height() * direction / cv::norm(direction);
+
+			process(image, direction, out_name);
+			break;
+		}
+		case Material::WATER:
+		{
+			
+
+
+			break;
+		}
+		}
+
+
 		std::cout << ++count << "images processed" << std::endl;
 	}
 
 	return 0;
-}
-
-void BilinInterp2(const cv::Mat &I, double x, double y, cv::Vec3f &dst)
-{
-	int x1 = (int)std::floor(x);
-	int y1 = (int)std::floor(y);
-	int x2 = (int)std::ceil(x);
-	int y2 = (int)std::ceil(y);
-	if (x1 < 0 || x2 >= I.cols || y1 < 0 || y2 >= I.rows) return;
-
-	const float *p1 = I.ptr<float>(y1, x1);
-	const float *p2 = I.ptr<float>(y1, x2);
-	const float *p3 = I.ptr<float>(y2, x1);
-	const float *p4 = I.ptr<float>(y2, x2);
-
-	for (int i = 0; i < 3; i++)
-	{
-		float c1 = p1[i] + (p2[i] - p1[i]) * (x - x1);
-		float c2 = p3[i] + (p4[i] - p3[i]) * (x - x1);
-		dst[i] = c1 + (c2 - c1) * (y - y1);
-	}
-}
-
-void MirrorImage(cv::Mat &image, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, float dist)
-{
-	struct Tri {
-		cv::Point2f v1, v2, v3;
-	};
-
-	std::vector<Tri> src, dst;
-
-	for (size_t i = 0; i < contour_points.size(); i++) {
-		const cv::Point2f &v1 = contour_points[i];
-		const cv::Point2f &v2 = contour_points[(i + 1) % contour_points.size()];
-
-		const cv::Point2f &n1 = normals_points[i];
-		const cv::Point2f &n2 = normals_points[(i + 1) % contour_points.size()];
-
-		cv::Point v1_top = v1 + dist * n1;
-		cv::Point v2_top = v2 + dist * n2;
-		cv::Point v1_down = v1 - dist * n1;
-		cv::Point v2_down = v2 - dist * n2;
-
-		Tri tri1_top{ v1, v2, v1_top };
-		Tri tri2_top{ v1, v2_top, v1_top };
-		Tri tri2_down{ v1, v2_down, v1_down };
-		Tri tri1_down{ v1, v2, v1_down };
-
-		dst.push_back(tri1_top);
-		dst.push_back(tri2_top);
-		src.push_back(tri2_down);
-		src.push_back(tri1_down);
-	}
-
-	for (size_t t = 0; t < src.size(); t++)
-	{
-		const Tri &s = src[t];
-		const Tri &d = dst[t];
-
-		cv::Mat1d A(3, 3);  A << d.v1.x, d.v2.x, d.v3.x, d.v1.y, d.v2.y, d.v3.y, 1, 1, 1;
-		cv::Mat1d B(3, 3);  B << s.v1.x, s.v2.x, s.v3.x, s.v1.y, s.v2.y, s.v3.y, 1, 1, 1;
-
-		cv::Mat1d M = B * A.inv();
-		double *affine = M.ptr<double>();
-
-		int xmax = std::ceil(std::max(std::max(d.v1.x, d.v2.x), d.v3.x));
-		int ymax = std::ceil(std::max(std::max(d.v1.y, d.v2.y), d.v3.y));
-		int xmin = std::floor(std::min(std::min(d.v1.x, d.v2.x), d.v3.x));
-		int ymin = std::floor(std::min(std::min(d.v1.y, d.v2.y), d.v3.y));
-		if (xmax > image.cols - 1) xmax = image.cols - 1;
-		if (ymax > image.rows - 1) ymax = image.rows - 1;
-		if (xmin < 0) xmin = 0;
-		if (ymin < 0) ymin = 0;
-
-		for (int i = ymin; i <= ymax; i++)
-		{
-			cv::Vec3f *p_dst = image.ptr<cv::Vec3f>(i);
-
-			for (int j = xmin; j <= xmax; j++)
-			{
-				double x = affine[0] * j + affine[1] * i + affine[2];
-				double y = affine[3] * j + affine[4] * i + affine[5];
-				BilinInterp2(image, x, y, p_dst[j]);
-			}
-		}
-	}
 }
