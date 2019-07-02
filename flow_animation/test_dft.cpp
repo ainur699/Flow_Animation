@@ -860,7 +860,7 @@ int main(int argc, char **argv)
 			CreateVectorField(mask, opacity_map, velocity_field, direction, contours_points, normals_points, Material::HAIR);
 
 			cv::Mat high, low;
-			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
+			FrequencyDec(fimg, 0.04f, 0.04f, high, low);
 
 			float Tloop = 2.5f;
 			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
