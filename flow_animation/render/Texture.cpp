@@ -18,10 +18,10 @@ Texture::~Texture()
 
 
 //-----------------------------------------------------------------------------
-void Texture2D::createColorTexture(const cv::Mat &image, GLint magFilter, GLint minFilter)
+void Texture2D::createColorTexture(const cv::Mat &image, GLint magFilter, GLint minFilter, GLenum type, GLint internalFormat)
 {
 	m_image = image.clone();
-	_create(m_image.data, GL_RGBA, m_image.cols, m_image.rows, GL_RGBA, GL_UNSIGNED_BYTE, magFilter, minFilter);
+	_create(m_image.data, internalFormat, m_image.cols, m_image.rows, GL_RGBA, type, magFilter, minFilter);
 }
 
 

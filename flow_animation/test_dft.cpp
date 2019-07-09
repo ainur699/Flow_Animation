@@ -8,6 +8,7 @@
 #include "ffmpeg/video_encoder.h"
 #include <GL/glew.h>
 #include <GL/glut.h>
+#include <GL/freeglut_ext.h>
 #include "render/GLSLProgram.h"
 #include "render/Texture.hpp"
 #include <thread>
@@ -17,6 +18,19 @@
 #include <dlib/opencv.h>
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing.h>
+
+
+#define __DEBUG
+#define __GPU
+//#define __CPU
+
+#if defined( _WIN32 )
+	#ifdef __DEBUG
+		#define ASSERT(x) if(!(x)) __debugbreak()
+	#else
+		#define ASSERT(x)
+	#endif
+#endif
 
 enum class Material
 {
@@ -250,6 +264,16 @@ void CreateNormalMask(cv::Mat& img, cv::Subdiv2D& subdiv, std::vector<cv::Point2
 	cv::blur(img, img, cv::Size(3, 3));
 }
 
+cv::Mat _rendertestmask(cv::Mat& testimage)
+{
+	cv::Mat rendertestimage;
+	std::vector<cv::Mat> channels;
+	cv::split(testimage, channels);
+	channels.push_back(cv::Mat::zeros(channels[0].rows, channels[0].cols, channels[0].type()));
+	cv::merge(channels, rendertestimage);
+	return rendertestimage;
+}
+
 void CreateVectorField(cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &dst, cv::Point2f dir, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, Material material)
 {
 	cv::Mat distance(mask.size(), CV_32FC1);
@@ -449,7 +473,7 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 	cv::merge(hvec, high);
 	cv::merge(lvec, low);
 
-#if 1
+#if 0
 	cv::imwrite("res_debug/fr_high.png", 255.0 * high);
 	cv::imwrite("res_debug/fr_low.png", 255.0 * low);
 	cv::imwrite("res_debug/fr_low_high.png", 255.0 * (low + high));
@@ -459,8 +483,9 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 class FlowModel
 {
 public:
+	FlowModel() {}
 	FlowModel(cv::Mat &img, cv::Mat &velocity_map, cv::Mat &opacity_map, float frame_time)
-		: m_source(img), m_velicity_map(velocity_map), m_Tframe(frame_time), m_opacity_map(opacity_map)
+		: m_source(img), m_velocity_map(velocity_map), m_Tframe(frame_time), m_opacity_map(opacity_map)
 	{
 		m_offset_map.create(img.size(), CV_32FC2);
 		m_offset_map.setTo(cv::Scalar::all(0));
@@ -476,7 +501,7 @@ public:
 			cv::Mat offset_prev = m_offset_map.clone();
 
 			for (int i = 0; i < m_offset_map.rows; i++) {
-				cv::Vec2f *p_vec = m_velicity_map.ptr<cv::Vec2f>(i);
+				cv::Vec2f *p_vec = m_velocity_map.ptr<cv::Vec2f>(i);
 				cv::Vec2f *p_offset = m_offset_map.ptr<cv::Vec2f>(i);
 
 				for (int j = 0; j < m_offset_map.cols; j++) {
@@ -491,30 +516,27 @@ public:
 
 	void GetNext(cv::Mat &dst, int frame = 0)
 	{
-		cv::Mat offset_prev = m_offset_map.clone();
-
-		for (int i = 0; i < m_offset_map.rows; i++) {
-			cv::Vec2f *p_vec = m_velicity_map.ptr<cv::Vec2f>(i);
-			cv::Vec2f *p_offset = m_offset_map.ptr<cv::Vec2f>(i);
+		for (int i = 0; i < m_velocity_map.rows; i++) {
+			cv::Vec2f *p_vec = m_velocity_map.ptr<cv::Vec2f>(i);
 			cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(i);
 			cv::Vec3f *p_src = m_source.ptr<cv::Vec3f>(i);
 
 			for (int j = 0; j < m_offset_map.cols; j++) {
 				cv::Vec2f delta = -m_Tframe * p_vec[j];
-				
-#if 1
+
 				float x = j + frame * delta[0];
 				float y = i + frame * delta[1];
 
 				if (x < 0 || x >= dst.cols || y < 0 || y >= dst.rows) {
 					p_dst[j] = p_src[j];
 				}
-				else if (p_vec[j] != cv::Vec2f() && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
-					p_dst[j] = p_src[j];
-				}
+				//else if (p_vec[j] != cv::Vec2f() && m_velocity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+				//	p_dst[j] = p_src[j];
+				//}
 				else {
 					cv::Vec3f color1, color2;
-					BilinInterp(m_source, x, y, &color1[0]);
+					//BilinInterp(m_source, x, y, &color1[0]);
+					color1 = m_source.at<cv::Vec3f>(y, x);
 					color2 = p_src[j];
 
 					if (color1 != cv::Vec3f()) {
@@ -522,12 +544,6 @@ public:
 						p_dst[j] = (1 - k) * color2 + k * color1;
 					}
 				}
-#else
-				cv::Vec2f sample = offset_prev.at<cv::Vec2f>(i + delta[1], j + delta[0]);
-				p_offset[j] = delta + sample;
-
-				BilinInterp(m_source, j + p_offset[j][0], i + p_offset[j][1], &p_dst[j][0]);
-#endif
 			}
 		}
 	}
@@ -536,7 +552,7 @@ public:
 public:
 	cv::Mat m_source;
 	cv::Mat m_offset_map;
-	cv::Mat m_velicity_map;
+	cv::Mat m_velocity_map;
 	cv::Mat m_opacity_map;
 	float m_Tframe;
 };
@@ -556,11 +572,257 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 	return dst;
 }
 
-void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop)
+
+GLSLProgram glProgram;
+Texture2D high_tex;
+Texture2D offset_tex1;
+Texture2D low_tex;
+Texture2D velocity_tex1;
+Texture2D opacity_tex1;
+
+float g_Tframe;
+float g_frame1, g_frame2;
+float g_k, g_max_del;
+cv::Mat g_frame;
+
+
+int width, height;
+int var = 0;
+
+std::string vert_shader = R"glsl(
+	#version 430
+
+	layout (location=0) in vec2 VertexPosition;
+	layout (location=1) in vec2 VertexText;
+
+	uniform mat4 ModelViewMatrix;
+	uniform mat3 NormalMatrix;
+	uniform mat4 MVP;
+
+	out vec2 TextCoord;
+
+	void main()
+	{
+		TextCoord = VertexText;
+		gl_Position = vec4(VertexPosition, 0.0, 1.0);
+	}
+)glsl";
+
+//void GetNext(cv::Mat &dst, int frame = 0)
+//{
+//	cv::Mat offset_prev = m_offset_map.clone();
+//	for (int i = 0; i < m_offset_map.rows; i++) {
+//		cv::Vec2f *p_vec = m_velicity_map.ptr<cv::Vec2f>(i);
+//		cv::Vec2f *p_offset = m_offset_map.ptr<cv::Vec2f>(i);
+//		cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(i);
+//		cv::Vec3f *p_src = m_source.ptr<cv::Vec3f>(i);
+//		for (int j = 0; j < m_offset_map.cols; j++) {
+//			cv::Vec2f delta = -m_Tframe * p_vec[j];
+//			float x = j + frame * delta[0];
+//			float y = i + frame * delta[1];
+//
+//			if (x < 0 || x >= dst.cols || y < 0 || y >= dst.rows) {
+//				p_dst[j] = p_src[j];
+//			}
+//			else if (p_vec[j] != cv::Vec2f() && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+//				p_dst[j] = p_src[j];
+//			}
+//			else {
+//				cv::Vec3f color1, color2;
+//				BilinInterp(m_source, x, y, &color1[0]);
+//				color2 = p_src[j];
+//
+//				if (color1 != cv::Vec3f()) {
+//					float k = m_opacity_map.at<float>(y, x);
+//					p_dst[j] = (1 - k) * color2 + k * color1;
+//				}
+//			}
+//		}
+//	}
+//}
+//inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const float &x, const float &max_val)
+//{
+//	cv::Vec3f dst;
+//
+//	/// сильный пиксель по трём каналам
+//	for (int i = 0; i < 3; i++) {
+//		float v = std::abs(p2[i]) / max_val;
+//		float p = (v >= 0.5f) ? (-1.6f * v + 1.8f) : (-8.f * v + 5.f);
+//		float k = std::pow(x, p);
+//		dst[i] = (1 - k) * p1[i] + k * p2[i];
+//	}
+//
+//	return dst;
+//}
+//for (int row = 0; row < dst.rows; row++) {
+//	cv::Vec3f *p_w0 = wave0.ptr<cv::Vec3f>(row);
+//	cv::Vec3f *p_w1 = wave1.ptr<cv::Vec3f>(row);
+//	cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(row);
+//
+//	for (int col = 0; col < dst.cols; col++) {
+//		cv::Vec3f f0 = p_w0[col];
+//		cv::Vec3f f1 = p_w1[col];
+//
+//		float k = 1.f / (Nloop - 1.f) * i;
+//		p_dst[col] += color_blend(f0, f1, k, maxVal);
+//	}
+//}
+
+std::string frag_shader = R"glsl(
+	#version 430
+
+	in vec2 TextCoord;
+
+	uniform sampler2D high;
+	uniform sampler2D low;
+	uniform sampler2D velocity_map;
+	uniform sampler2D opacity_map;
+	uniform sampler2D source;
+
+	uniform vec2 viewPort;
+
+	uniform float tframe;
+	uniform float frame1;
+	uniform float frame2;
+	uniform float k;
+	uniform float max_del;
+
+	layout (location = 0) out vec4 FragColor;
+
+	vec3 color_blend(vec4 p1, vec4 p2, float x, float max_del) {
+		vec3 ret;
+		vec4 v = abs(p2) * max_del;		
+		for (int i = 0; i < 3; i++)
+		{
+			float p = (v[i] >= 0.5) ? (-1.6 * v[i] + 1.8) : (-8.0 * v[i] + 5.0);
+			float k = pow(x, p);
+			ret[i] = (1.0 - k) * p1[i] + k * p2[i];
+		}
+		return ret;
+	}
+
+	vec4 flow(float frame) {
+		vec2 cur = gl_FragCoord.xy;
+		ivec2 icur = ivec2(cur);
+		vec2 delta = tframe * vec2(texelFetch(velocity_map, icur, 0));
+		vec2 xy = cur + frame * delta;
+		ivec2 ixy = ivec2(xy);
+		xy.x *= viewPort.x;
+		xy.y *= viewPort.y;
+		if (xy.x < 0.0 || xy.x > 1.0 || xy.y < 0.0 || xy.y > 1.0) {
+			return texelFetch(high, icur, 0);
+		}
+		vec4 color1 = texelFetch(high, ixy, 0);
+		vec4 color2 = texelFetch(high, icur, 0);
+		float k = texelFetch(opacity_map, ixy, 0)[0];
+		return color2 * (1.0 - k) + color1 * k;
+		//return color1;
+	}
+
+	void main() { 
+		vec4 wave0 = flow(frame1);
+		vec4 wave1 = flow(frame2);
+		vec3 lowvec = vec3(texelFetch(low, ivec2(gl_FragCoord.xy), 0));
+		FragColor = vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0);
+		//FragColor = wave0;
+		//FragColor = texture(low, TextCoord) + wave1;
+	}
+)glsl";
+
+
+
+void display(void) {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+	std::vector<float> positionData = {
+		-1, -1,
+		 1, -1,
+		 1,  1,
+		-1,  1
+	};
+	std::vector<float> textureData = {
+		0, 0,
+		1, 0,
+		1, 1,
+		0, 1,
+	};
+
+	glProgram.setAtribute(0, positionData, 2);
+	glProgram.setAtribute(1, textureData, 2);
+	glProgram.setUniform("velocity_map", 3);
+	glProgram.setUniform("opacity_map", 4);
+	glProgram.setUniform("high", 1);
+	glProgram.setUniform("low", 2);
+	glProgram.setUniform("tframe", g_Tframe);
+	glProgram.setUniform("frame1", g_frame1);
+	glProgram.setUniform("frame2", g_frame2);
+	glProgram.setUniform("k", g_k);
+	glProgram.setUniform("max_del", g_max_del);
+	glProgram.setUniform("viewPort", glm::vec2(1.f / (width - 1), 1.f / (height - 1)));
+	glProgram.draw(GL_QUADS, 0, positionData.size());
+
+	cv::Mat frame(height, width, CV_32FC4);
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, frame.data);
+	glutSwapBuffers();
+	cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
+	cv::flip(frame, frame, 0);
+	//cv::imwrite("frames/" + std::to_string(pos++ % 60) + "_frame.png", frame * 200);
+	frame.copyTo(g_frame);
+}
+
+
+void init(void) {
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_DEPTH_TEST);
+	glClearColor(1, 0, 0, 1);
+
+	glProgram.PrintGPUVersion();
+	glProgram.compileShader(vert_shader, GLSLShader::VERTEX);
+	glProgram.compileShader(frag_shader, GLSLShader::FRAGMENT);
+	glProgram.link();
+	glProgram.use();
+	glProgram.validate();
+	glProgram.findUniformLocations();
+}
+
+
+void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool switch_channels = true) {
+	cv::Mat tx;
+	if (img.channels() == 3) {
+		img.copyTo(tx);
+	}
+	else if (img.channels() == 1) {
+		cv::merge(std::vector<cv::Mat>({ img, img, img }), tx);
+	}
+	else {
+		tx = _rendertestmask(img);
+	}
+	ASSERT(tx.channels() == 3);
+	if (switch_channels) {
+		cv::cvtColor(tx, tx, cv::COLOR_BGR2RGBA);
+	}
+	else {
+		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
+	}
+	ASSERT(tx.type() == 29 || tx.type() == 24);
+	ASSERT(img.cols == width);
+	ASSERT(img.rows == height);
+	cv::flip(tx, tx, 0);
+	if (tx.type() == 29) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
+	if (tx.type() == 24) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE);
+	tex.bind(slot);
+}
+
+
+void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop,
+	int argc, char** argv)
 {
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
+
+	cv::imwrite("HIGH.png", high * 300);
 
 	FlowModel flow0(high, field_map, opacity_map, Tframe);
 	FlowModel flow1(high, field_map, opacity_map, Tframe);
@@ -572,20 +834,49 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	double Mmin, Mmax;
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
+	cv::Mat img;
+	src.copyTo(img);
 
+#if 1
+	g_Tframe = Tframe * 10;
+	g_max_del = 1.f / maxVal;
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGBA);
+	glutInitWindowSize(src.cols, src.rows);
+	glViewport(0, 0, (GLsizei)width, (GLsizei)height);
+	
+	
+	width = src.cols;
+	height = src.rows;
+	
+	glutCreateWindow("OpenGL Render");
+
+	if (GLEW_OK != glewInit()) {
+		std::cout << "Couldn't initialize GLEW" << std::endl;
+		exit(0);
+	}
+
+	glutDisplayFunc(display);
+	glutIdleFunc(display);
+
+	///glutReshapeFunc(reshape);
+	
+	//setTexture(gl_src_image, img, GL_TEXTURE1);
+	setTexture(high_tex, high, GL_TEXTURE1);
+	setTexture(low_tex, low, GL_TEXTURE2);
+	cv::Mat vel = flow0.m_velocity_map * 255;
+	setTexture(velocity_tex1, vel, GL_TEXTURE3);
+	setTexture(opacity_tex1, flow0.m_opacity_map, GL_TEXTURE4);
+	init();
+	//glutMainLoop();
+	
+#endif
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
-
-#if 0
-		flow0.GetNext(wave0);
-		flow1.GetNext(wave1);
-#else
+#ifdef __CPU
 		flow0.GetNext(wave0, i);
 		flow1.GetNext(wave1, -Nloop + i);
-#endif
-
 		low.copyTo(dst);
-
 		for (int row = 0; row < dst.rows; row++) {
 			cv::Vec3f *p_w0 = wave0.ptr<cv::Vec3f>(row);
 			cv::Vec3f *p_w1 = wave1.ptr<cv::Vec3f>(row);
@@ -599,11 +890,28 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 				p_dst[col] += color_blend(f0, f1, k, maxVal);
 			}
 		}
-
+#endif
+#ifdef __GPU
+		g_frame1 = i;
+		g_frame2 = -Nloop + i;
+		g_k = 1.f / (Nloop - 1.f) * i;
+		glProgram.setUniform("velocity_map", 3);
+		glProgram.setUniform("opacity_map", 4);
+		glProgram.setUniform("high", 1);
+		glProgram.setUniform("low", 2);
+		glProgram.setUniform("tframe", g_Tframe);
+		glProgram.setUniform("frame1", g_frame1);
+		glProgram.setUniform("frame2", g_frame2);
+		glProgram.setUniform("k", g_k);
+		glProgram.setUniform("max_del", g_max_del);
+		glProgram.setUniform("viewPort", glm::vec2(width - 1, height - 1));
+		//glutMainLoopEvent();
+		display();
+		g_frame.copyTo(dst);
+#endif
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
 	}
-
 
 	///init writer
 	VideoWriterMemory writer;
@@ -629,95 +937,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	delete d;
 }
 
-
-GLSLProgram glProgram;
-Texture2D gl_src_image;
-int width, height;
-int var = 0;
-
-std::string vert_shader = R"glsl(
-	#version 430
-
-	layout (location=0) in vec2 VertexPosition;
-	layout (location=1) in vec2 VertexText;
-
-	uniform mat4 ModelViewMatrix;
-	uniform mat3 NormalMatrix;
-	uniform mat4 MVP;
-
-	out vec2 TextCoord;
-
-	void main()
-	{
-		TextCoord = VertexText;
-		gl_Position = vec4(VertexPosition, 0.0, 1.0);
-	}
-)glsl";
-
-std::string frag_shader = R"glsl(
-	#version 430
-
-	in vec2 TextCoord;
-
-	uniform sampler2D Text;
-
-	layout (location = 0) out vec4 FragColor;
-
-	void main() {
-		FragColor = texture(Text, TextCoord);
-	}
-)glsl";
-
-void display(void) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	std::cout << var << std::endl;
-
-
-	std::vector<float> positionData = {
-		-1, -1,
-		 1, -1,
-		 1,  1,
-		-1,  1
-	};
-	std::vector<float> textureData = {
-		0, 0,
-		1, 0,
-		1, 1,
-		0, 1,
-	};
-
-	glProgram.setAtribute(0, positionData, 2);
-	glProgram.setAtribute(1, textureData, 2);
-	glProgram.setUniform("Text", 1);
-	glProgram.draw(GL_QUADS, 0, positionData.size());
-
-	glutSwapBuffers();
-
-#if 1
-	static int pos = 0;
-	cv::Mat frame(height, width, CV_8UC4);
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, frame.data);
-
-	cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
-	cv::flip(frame, frame, 0);
-	cv::imwrite("frames/" + std::to_string(pos++ % 10) + "_frame.png", frame);
-#endif
-}
-
-void init(void) {
-	glEnable(GL_TEXTURE_2D);
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(1,0,0,1);
-
-	glProgram.PrintGPUVersion();
-	glProgram.compileShader(vert_shader, GLSLShader::VERTEX);
-	glProgram.compileShader(frag_shader, GLSLShader::FRAGMENT);
-	glProgram.link();
-	glProgram.use();
-	glProgram.validate();
-	glProgram.findUniformLocations();
-}
-
 void reshape(int width, int height) {
 	glViewport(0, 0, (GLsizei)width, (GLsizei)height);
 	glMatrixMode(GL_PROJECTION);
@@ -737,80 +956,39 @@ void trackbar()
 	}
 }
 
-int process(const cv::Mat &image, cv::Vec2f dir, std::string out_name)
-{
-	width = image.cols;
-	height = image.rows;
-#if 0
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGBA);
-	glutInitWindowSize(width, height);
-	glutCreateWindow("OpenGL Render");
-
-	if (GLEW_OK != glewInit()) {
-		std::cout << "Couldn't initialize GLEW" << std::endl;
-		exit(0);
-	}
-
-	glutDisplayFunc(display);
-	glutIdleFunc(display);
-	///glutReshapeFunc(reshape);
-
-	cv::cvtColor(img, img, cv::COLOR_BGR2RGBA);
-	cv::flip(img, img, 0);
-	gl_src_image.createColorTexture(img, GL_LINEAR, GL_LINEAR);
-	gl_src_image.bind(GL_TEXTURE1);
-	init();
-
-	std::thread(trackbar).detach();
-	glutMainLoop();
-#endif
-	cv::Mat fimg;
-	image.convertTo(fimg, CV_32FC3, 1 / 255.0);
-
-#if 1
-	cv::Mat mask;
-	int res = GetMask(image, mask, Material::HAIR);
-	if (res != 0) return -1;
-#else
-	cv::Mat mask = cv::imread("m3.png", cv::ImreadModes::IMREAD_UNCHANGED);
-#endif
-
-	cv::Mat velocity_field;
-	cv::Mat opacity_map;
-	std::vector<cv::Point2f> contours_points, normals_points;
-	CreateVectorField(mask, opacity_map, velocity_field, dir, contours_points, normals_points, Material::HAIR);
-
-	cv::Mat high, low;
-	FrequencyDec(fimg, 0.07f, 0.04f, high, low);
-
-	float Tloop = 2.5f;
-	float dist = Tloop * cv::norm(dir);
-
-	PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
-}
 
 int main(int argc, char **argv)
 {
-	Material material = Material::WATER;
+	Material material = Material::HAIR;
 
 	dlib::frontal_face_detector	dlib_detector;
 	dlib::shape_predictor pose_model;
 
+
 	if (material == Material::HAIR) {
 		dlib_detector = dlib::get_frontal_face_detector();
-		try { dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model; }
-		catch (...) { return -1; }
+		try { 
+			dlib::deserialize("res/shape_predictor_68_face_landmarks.dat") >> pose_model; 
+		}
+		catch (...) { 
+			return -1; 
+		}
 	}
 
-	std::filesystem::path dir("C:/Users/Ainur/Desktop/flow_animation/flow_animation/water");
+	std::filesystem::path dir("C:/Users/User/Desktop/flow_animation/hair");
 	std::filesystem::directory_iterator it(dir), end;
+
+
 
 	for (int count = 0; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());
 		if (image.empty()) continue;
 
+#ifdef __GPU
+		std::string fname = it->path().filename().string() + "_gpu";
+#else
 		std::string fname = it->path().filename().string();
+#endif
 		std::string out_name = "results/" + fname + ".mp4";
 
 		switch (material) {
@@ -829,6 +1007,7 @@ int main(int argc, char **argv)
 
 			cv::Mat mask;
 			int res = GetMask(image, mask, material);
+			cv::imwrite("mask.png", mask);
 			if (res != 0) return -1;
 
 			cv::Mat velocity_field;
@@ -840,7 +1019,10 @@ int main(int argc, char **argv)
 			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
 
 			float Tloop = 2.5f;
-			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
+			
+			
+			
+			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop, argc, argv);
 			break;
 		}
 		case Material::WATER:
@@ -863,7 +1045,7 @@ int main(int argc, char **argv)
 			FrequencyDec(fimg, 0.04f, 0.04f, high, low);
 
 			float Tloop = 2.5f;
-			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop);
+			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop, argc, argv);
 
 			break;
 		}

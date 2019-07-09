@@ -1,0 +1,11 @@
+*.png
+/curl_lib/
+/curl_lib/*
+curl_lib/
+/ffmpeg/
+/x64/
+flow_animation/x64/
+flow_animation/ffmpeg/
+.vs
+flow_animation/res/
+*.mp4

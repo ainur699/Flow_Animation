@@ -84,6 +84,8 @@ public:
 
     void setUniform(const char *name, const glm::vec2 &v);
 
+	void setUniform(const char * name, const glm::ivec2 & v);
+
     void setUniform(const char *name, const glm::vec3 &v);
 
     void setUniform(const char *name, const glm::vec4 &v);
