@@ -1,3 +1,4 @@
+#pragma once
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <GL/freeglut_ext.h>
@@ -7,8 +8,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
-
-#pragma once
 class FlowGPU
 {
 public:
@@ -27,8 +26,8 @@ private:
 	Texture2D velocity_tex1;
 	Texture2D opacity_tex1;
 
-	float g_Tframe, g_max_del;
-	int width, height;
+	float m_Tframe, m_maxVal_frac;
+	int m_width, m_height;
 	int num_frames;
 
 	inline static const std::string vert_shader = R"glsl(
@@ -83,33 +82,35 @@ private:
 		return ret;
 	}
 
+
 	vec4 flow(float frame) {
 		vec2 cur = gl_FragCoord.xy;
 		ivec2 icur = ivec2(cur);
-		vec2 delta = tframe * vec2(texture(velocity_map, TextCoord));
-		vec2 xy = cur + frame * delta;
+		vec2 delta = -tframe * vec2(texture(velocity_map, TextCoord));
+		vec2 xy = cur;// + frame * delta;
+		//xy.x += frame * delta[0];
+		xy.y -= frame * delta[1];
 		ivec2 ixy = ivec2(xy);
 		xy.x *= viewPort.x;
 		xy.y *= viewPort.y;
 		if (xy.x < 0.0 || xy.x > 1.0 || xy.y < 0.0 || xy.y > 1.0) {
 			return texture(high, TextCoord);
 		}
-		//vec4 color1 = texture(high, xy);
+		if (delta != vec2(0.0) && vec2(texture(velocity_map, xy)) == vec2(0.0)) {
+			return texture(high, TextCoord);
+		}	
 		vec4 color1 = texture(high, xy);
 		vec4 color2 = texture(high, TextCoord);
-		//float k = texture(opacity_map, xy)[0];
 		float k = texture(opacity_map, xy)[0];
 		return color2 * (1.0 - k) + color1 * k;
-		//return color1;
 	}
 
 	void main() { 
 		vec4 wave0 = flow(frame1);
 		vec4 wave1 = flow(frame2);
 		vec3 lowvec = vec3(texture(low, TextCoord));
-		vec3 highvec = vec3(texture(high, TextCoord));
-		FragColor = texture(low, TextCoord);
-		//FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
+		//FragColor = texture(high, TextCoord);
+		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
 //* 0.7 + texture(velocity_map, TextCoord) * 0.3 ;
 		//FragColor = wave0;
 		//FragColor = texture(low, TextCoord) + wave1;

@@ -1,16 +1,24 @@
 #include "FlowGPU.h"
 #include <iostream>
 
-FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe): g_Tframe(Tframe) {
-	width = high.cols;
-	height = high.rows;
+FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe): m_Tframe(Tframe) {
+	m_width = high.cols;
+	m_height = high.rows;
 
 	double Mmin, Mmax;
 	cv::minMaxLoc(high, &Mmin, &Mmax);
 	float maxVal = std::max(std::abs(Mmin), Mmax);
-	g_max_del = 1.f / maxVal;
+	m_maxVal_frac = 1.f / maxVal;
 	
 	init(argc, argv, velocity, opacity, high, low);
+	glProgram.setUniform("velocity_map", 3);
+	glProgram.setUniform("opacity_map", 4);
+	glProgram.setUniform("high", 1);
+	glProgram.setUniform("low", 2);
+	glProgram.setUniform("tframe", m_Tframe);
+	glProgram.setUniform("max_del", m_maxVal_frac);
+	glProgram.setUniform("viewPort", glm::vec2(1.f / (m_width - 1), 1.f / (m_height - 1)));
+
 }
 
 cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
@@ -30,20 +38,13 @@ cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
 
 	glProgram.setAtribute(0, positionData, 2);
 	glProgram.setAtribute(1, textureData, 2);
-	glProgram.setUniform("velocity_map", 3);
-	glProgram.setUniform("opacity_map", 4);
-	glProgram.setUniform("high", 1);
-	glProgram.setUniform("low", 2);
-	glProgram.setUniform("tframe", g_Tframe);
 	glProgram.setUniform("frame1", frame1);
 	glProgram.setUniform("frame2", frame2);
 	glProgram.setUniform("k", k);
-	glProgram.setUniform("max_del", g_max_del);
-	glProgram.setUniform("viewPort", glm::vec2(1.f / (width - 1), 1.f / (height - 1)));
 	glProgram.draw(GL_QUADS, 0, positionData.size());
 
-	cv::Mat frame(height, width, CV_32FC4);
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, frame.data);
+	cv::Mat frame(m_height, m_width, CV_32FC4);
+	glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);
 	glutSwapBuffers();
 	cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
 	cv::flip(frame, frame, 0);
@@ -54,8 +55,8 @@ cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
 void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA | GLUT_MULTISAMPLE);
-	glutInitWindowSize(width, height);
-	glViewport(0, 0, (GLsizei)width, (GLsizei)height);
+	glutInitWindowSize(m_width, m_height);
+	glViewport(0, 0, (GLsizei)m_width, (GLsizei)m_height);
 	glutCreateWindow("OpenGL Render");
 	if (GLEW_OK != glewInit()) {
 		std::cout << "Couldn't initialize GLEW" << std::endl;
@@ -89,14 +90,20 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 #endif
 void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_channels) {
 	cv::Mat tx;
-	if (img.channels() == 3) {
+	int ch = img.channels();
+	switch (ch) {
+	case 3:
 		img.copyTo(tx);
-	}
-	else if (img.channels() == 1) {
-		cv::merge(std::vector<cv::Mat>({ img, img, img }), tx);
-	}
-	else {
+		break;
+	case 2:
 		tx = _rendertestmask(img);
+		break;
+	case 1:
+		cv::merge(std::vector<cv::Mat>({ img, img, img }), tx);
+		break;
+	default:
+		ASSERT(0);
+		break;
 	}
 	ASSERT(tx.channels() == 3);
 	if (switch_channels) {
@@ -105,12 +112,12 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	else {
 		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
 	}
-	ASSERT(tx.type() == 29 || tx.type() == 24);
-	ASSERT(img.cols == width);
-	ASSERT(img.rows == height);
+	ASSERT(tx.type() == 29);
+	ASSERT(tx.cols == m_width);
+	ASSERT(tx.rows == m_height);
 	cv::flip(tx, tx, 0);
 	if (tx.type() == 29) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
-	if (tx.type() == 24) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE);
+	//if (tx.type() == 24) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE);
 	tex.bind(slot);
 }
 
