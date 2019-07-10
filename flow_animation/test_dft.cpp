@@ -704,17 +704,19 @@ std::string frag_shader = R"glsl(
 	vec4 flow(float frame) {
 		vec2 cur = gl_FragCoord.xy;
 		ivec2 icur = ivec2(cur);
-		vec2 delta = tframe * vec2(texelFetch(velocity_map, icur, 0));
+		vec2 delta = tframe * vec2(texture(velocity_map, TextCoord));
 		vec2 xy = cur + frame * delta;
 		ivec2 ixy = ivec2(xy);
 		xy.x *= viewPort.x;
 		xy.y *= viewPort.y;
 		if (xy.x < 0.0 || xy.x > 1.0 || xy.y < 0.0 || xy.y > 1.0) {
-			return texelFetch(high, icur, 0);
+			return texture(high, TextCoord);
 		}
-		vec4 color1 = texelFetch(high, ixy, 0);
-		vec4 color2 = texelFetch(high, icur, 0);
-		float k = texelFetch(opacity_map, ixy, 0)[0];
+		//vec4 color1 = texture(high, xy);
+		vec4 color1 = texture(high, xy);
+		vec4 color2 = texture(high, TextCoord);
+		//float k = texture(opacity_map, xy)[0];
+		float k = texture(opacity_map, xy)[0];
 		return color2 * (1.0 - k) + color1 * k;
 		//return color1;
 	}
@@ -722,8 +724,9 @@ std::string frag_shader = R"glsl(
 	void main() { 
 		vec4 wave0 = flow(frame1);
 		vec4 wave1 = flow(frame2);
-		vec3 lowvec = vec3(texelFetch(low, ivec2(gl_FragCoord.xy), 0));
-		FragColor = vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0);
+		vec3 lowvec = vec3(texture(low, TextCoord));
+		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
+//* 0.7 + texture(velocity_map, TextCoord) * 0.3 ;
 		//FragColor = wave0;
 		//FragColor = texture(low, TextCoord) + wave1;
 	}
@@ -759,7 +762,7 @@ void display(void) {
 	glProgram.setUniform("frame2", g_frame2);
 	glProgram.setUniform("k", g_k);
 	glProgram.setUniform("max_del", g_max_del);
-	glProgram.setUniform("viewPort", glm::vec2(1.f / (width - 1), 1.f / (height - 1)));
+	glProgram.setUniform("viewPort", glm::ivec2(width - 1, height - 1));
 	glProgram.draw(GL_QUADS, 0, positionData.size());
 
 	cv::Mat frame(height, width, CV_32FC4);
@@ -838,7 +841,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	src.copyTo(img);
 
 #if 1
-	g_Tframe = Tframe * 10;
+	g_Tframe = Tframe *10;
 	g_max_del = 1.f / maxVal;
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGBA);
@@ -864,7 +867,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	//setTexture(gl_src_image, img, GL_TEXTURE1);
 	setTexture(high_tex, high, GL_TEXTURE1);
 	setTexture(low_tex, low, GL_TEXTURE2);
-	cv::Mat vel = flow0.m_velocity_map * 255;
+	cv::Mat vel = flow0.m_velocity_map;
 	setTexture(velocity_tex1, vel, GL_TEXTURE3);
 	setTexture(opacity_tex1, flow0.m_opacity_map, GL_TEXTURE4);
 	init();
@@ -904,7 +907,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 		glProgram.setUniform("frame2", g_frame2);
 		glProgram.setUniform("k", g_k);
 		glProgram.setUniform("max_del", g_max_del);
-		glProgram.setUniform("viewPort", glm::vec2(width - 1, height - 1));
+		glProgram.setUniform("viewPort", glm::vec2(1.f / (width - 1), 1.f / (height - 1)));
 		//glutMainLoopEvent();
 		display();
 		g_frame.copyTo(dst);
