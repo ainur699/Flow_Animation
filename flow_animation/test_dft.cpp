@@ -1,16 +1,7 @@
-﻿#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
-#include <iostream>
+﻿#include <iostream>
 #include <fstream>
 #include <curl/curl.h>
 #include "ffmpeg/video_encoder.h"
-#include <GL/glew.h>
-#include <GL/glut.h>
-#include <GL/freeglut_ext.h>
-#include "render/GLSLProgram.h"
-#include "render/Texture.hpp"
 #include <thread>
 #include <filesystem>
 
@@ -18,19 +9,9 @@
 #include <dlib/opencv.h>
 #include <dlib/image_processing/frontal_face_detector.h>
 #include <dlib/image_processing.h>
-
-
-#define __DEBUG
+#include "FlowGPU.h"
 #define __GPU
 //#define __CPU
-
-#if defined( _WIN32 )
-	#ifdef __DEBUG
-		#define ASSERT(x) if(!(x)) __debugbreak()
-	#else
-		#define ASSERT(x)
-	#endif
-#endif
 
 enum class Material
 {
@@ -264,15 +245,7 @@ void CreateNormalMask(cv::Mat& img, cv::Subdiv2D& subdiv, std::vector<cv::Point2
 	cv::blur(img, img, cv::Size(3, 3));
 }
 
-cv::Mat _rendertestmask(cv::Mat& testimage)
-{
-	cv::Mat rendertestimage;
-	std::vector<cv::Mat> channels;
-	cv::split(testimage, channels);
-	channels.push_back(cv::Mat::zeros(channels[0].rows, channels[0].cols, channels[0].type()));
-	cv::merge(channels, rendertestimage);
-	return rendertestimage;
-}
+
 
 void CreateVectorField(cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &dst, cv::Point2f dir, std::vector<cv::Point2f> &contour_points, std::vector<cv::Point2f> &normals_points, Material material)
 {
@@ -572,250 +545,8 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 	return dst;
 }
 
-
-GLSLProgram glProgram;
-Texture2D high_tex;
-Texture2D offset_tex1;
-Texture2D low_tex;
-Texture2D velocity_tex1;
-Texture2D opacity_tex1;
-
-float g_Tframe;
-float g_frame1, g_frame2;
-float g_k, g_max_del;
-cv::Mat g_frame;
-
-
 int width, height;
 int var = 0;
-
-std::string vert_shader = R"glsl(
-	#version 430
-
-	layout (location=0) in vec2 VertexPosition;
-	layout (location=1) in vec2 VertexText;
-
-	uniform mat4 ModelViewMatrix;
-	uniform mat3 NormalMatrix;
-	uniform mat4 MVP;
-
-	out vec2 TextCoord;
-
-	void main()
-	{
-		TextCoord = VertexText;
-		gl_Position = vec4(VertexPosition, 0.0, 1.0);
-	}
-)glsl";
-
-//void GetNext(cv::Mat &dst, int frame = 0)
-//{
-//	cv::Mat offset_prev = m_offset_map.clone();
-//	for (int i = 0; i < m_offset_map.rows; i++) {
-//		cv::Vec2f *p_vec = m_velicity_map.ptr<cv::Vec2f>(i);
-//		cv::Vec2f *p_offset = m_offset_map.ptr<cv::Vec2f>(i);
-//		cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(i);
-//		cv::Vec3f *p_src = m_source.ptr<cv::Vec3f>(i);
-//		for (int j = 0; j < m_offset_map.cols; j++) {
-//			cv::Vec2f delta = -m_Tframe * p_vec[j];
-//			float x = j + frame * delta[0];
-//			float y = i + frame * delta[1];
-//
-//			if (x < 0 || x >= dst.cols || y < 0 || y >= dst.rows) {
-//				p_dst[j] = p_src[j];
-//			}
-//			else if (p_vec[j] != cv::Vec2f() && m_velicity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
-//				p_dst[j] = p_src[j];
-//			}
-//			else {
-//				cv::Vec3f color1, color2;
-//				BilinInterp(m_source, x, y, &color1[0]);
-//				color2 = p_src[j];
-//
-//				if (color1 != cv::Vec3f()) {
-//					float k = m_opacity_map.at<float>(y, x);
-//					p_dst[j] = (1 - k) * color2 + k * color1;
-//				}
-//			}
-//		}
-//	}
-//}
-//inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const float &x, const float &max_val)
-//{
-//	cv::Vec3f dst;
-//
-//	/// сильный пиксель по трём каналам
-//	for (int i = 0; i < 3; i++) {
-//		float v = std::abs(p2[i]) / max_val;
-//		float p = (v >= 0.5f) ? (-1.6f * v + 1.8f) : (-8.f * v + 5.f);
-//		float k = std::pow(x, p);
-//		dst[i] = (1 - k) * p1[i] + k * p2[i];
-//	}
-//
-//	return dst;
-//}
-//for (int row = 0; row < dst.rows; row++) {
-//	cv::Vec3f *p_w0 = wave0.ptr<cv::Vec3f>(row);
-//	cv::Vec3f *p_w1 = wave1.ptr<cv::Vec3f>(row);
-//	cv::Vec3f *p_dst = dst.ptr<cv::Vec3f>(row);
-//
-//	for (int col = 0; col < dst.cols; col++) {
-//		cv::Vec3f f0 = p_w0[col];
-//		cv::Vec3f f1 = p_w1[col];
-//
-//		float k = 1.f / (Nloop - 1.f) * i;
-//		p_dst[col] += color_blend(f0, f1, k, maxVal);
-//	}
-//}
-
-std::string frag_shader = R"glsl(
-	#version 430
-
-	in vec2 TextCoord;
-
-	uniform sampler2D high;
-	uniform sampler2D low;
-	uniform sampler2D velocity_map;
-	uniform sampler2D opacity_map;
-	uniform sampler2D source;
-
-	uniform vec2 viewPort;
-
-	uniform float tframe;
-	uniform float frame1;
-	uniform float frame2;
-	uniform float k;
-	uniform float max_del;
-
-	layout (location = 0) out vec4 FragColor;
-
-	vec3 color_blend(vec4 p1, vec4 p2, float x, float max_del) {
-		vec3 ret;
-		vec4 v = abs(p2) * max_del;		
-		for (int i = 0; i < 3; i++)
-		{
-			float p = (v[i] >= 0.5) ? (-1.6 * v[i] + 1.8) : (-8.0 * v[i] + 5.0);
-			float k = pow(x, p);
-			ret[i] = (1.0 - k) * p1[i] + k * p2[i];
-		}
-		return ret;
-	}
-
-	vec4 flow(float frame) {
-		vec2 cur = gl_FragCoord.xy;
-		ivec2 icur = ivec2(cur);
-		vec2 delta = tframe * vec2(texture(velocity_map, TextCoord));
-		vec2 xy = cur + frame * delta;
-		ivec2 ixy = ivec2(xy);
-		xy.x *= viewPort.x;
-		xy.y *= viewPort.y;
-		if (xy.x < 0.0 || xy.x > 1.0 || xy.y < 0.0 || xy.y > 1.0) {
-			return texture(high, TextCoord);
-		}
-		//vec4 color1 = texture(high, xy);
-		vec4 color1 = texture(high, xy);
-		vec4 color2 = texture(high, TextCoord);
-		//float k = texture(opacity_map, xy)[0];
-		float k = texture(opacity_map, xy)[0];
-		return color2 * (1.0 - k) + color1 * k;
-		//return color1;
-	}
-
-	void main() { 
-		vec4 wave0 = flow(frame1);
-		vec4 wave1 = flow(frame2);
-		vec3 lowvec = vec3(texture(low, TextCoord));
-		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
-//* 0.7 + texture(velocity_map, TextCoord) * 0.3 ;
-		//FragColor = wave0;
-		//FragColor = texture(low, TextCoord) + wave1;
-	}
-)glsl";
-
-
-
-void display(void) {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-	std::vector<float> positionData = {
-		-1, -1,
-		 1, -1,
-		 1,  1,
-		-1,  1
-	};
-	std::vector<float> textureData = {
-		0, 0,
-		1, 0,
-		1, 1,
-		0, 1,
-	};
-
-	glProgram.setAtribute(0, positionData, 2);
-	glProgram.setAtribute(1, textureData, 2);
-	glProgram.setUniform("velocity_map", 3);
-	glProgram.setUniform("opacity_map", 4);
-	glProgram.setUniform("high", 1);
-	glProgram.setUniform("low", 2);
-	glProgram.setUniform("tframe", g_Tframe);
-	glProgram.setUniform("frame1", g_frame1);
-	glProgram.setUniform("frame2", g_frame2);
-	glProgram.setUniform("k", g_k);
-	glProgram.setUniform("max_del", g_max_del);
-	glProgram.setUniform("viewPort", glm::ivec2(width - 1, height - 1));
-	glProgram.draw(GL_QUADS, 0, positionData.size());
-
-	cv::Mat frame(height, width, CV_32FC4);
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_FLOAT, frame.data);
-	glutSwapBuffers();
-	cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
-	cv::flip(frame, frame, 0);
-	//cv::imwrite("frames/" + std::to_string(pos++ % 60) + "_frame.png", frame * 200);
-	frame.copyTo(g_frame);
-}
-
-
-void init(void) {
-	glEnable(GL_TEXTURE_2D);
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(1, 0, 0, 1);
-
-	glProgram.PrintGPUVersion();
-	glProgram.compileShader(vert_shader, GLSLShader::VERTEX);
-	glProgram.compileShader(frag_shader, GLSLShader::FRAGMENT);
-	glProgram.link();
-	glProgram.use();
-	glProgram.validate();
-	glProgram.findUniformLocations();
-}
-
-
-void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool switch_channels = true) {
-	cv::Mat tx;
-	if (img.channels() == 3) {
-		img.copyTo(tx);
-	}
-	else if (img.channels() == 1) {
-		cv::merge(std::vector<cv::Mat>({ img, img, img }), tx);
-	}
-	else {
-		tx = _rendertestmask(img);
-	}
-	ASSERT(tx.channels() == 3);
-	if (switch_channels) {
-		cv::cvtColor(tx, tx, cv::COLOR_BGR2RGBA);
-	}
-	else {
-		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
-	}
-	ASSERT(tx.type() == 29 || tx.type() == 24);
-	ASSERT(img.cols == width);
-	ASSERT(img.rows == height);
-	cv::flip(tx, tx, 0);
-	if (tx.type() == 29) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
-	if (tx.type() == 24) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE);
-	tex.bind(slot);
-}
 
 
 void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop,
@@ -825,7 +556,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
 
-	cv::imwrite("HIGH.png", high * 300);
 
 	FlowModel flow0(high, field_map, opacity_map, Tframe);
 	FlowModel flow1(high, field_map, opacity_map, Tframe);
@@ -834,45 +564,13 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	cv::Mat frame(src.size(), CV_8UC3);
 	std::vector<cv::Mat> video;
 
-	double Mmin, Mmax;
-	cv::minMaxLoc(high, &Mmin, &Mmax);
-	float maxVal = std::max(std::abs(Mmin), Mmax);
 	cv::Mat img;
 	src.copyTo(img);
-
-#if 1
-	g_Tframe = Tframe *10;
-	g_max_del = 1.f / maxVal;
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_DEPTH | GLUT_RGBA);
-	glutInitWindowSize(src.cols, src.rows);
-	glViewport(0, 0, (GLsizei)width, (GLsizei)height);
-	
-	
 	width = src.cols;
 	height = src.rows;
-	
-	glutCreateWindow("OpenGL Render");
 
-	if (GLEW_OK != glewInit()) {
-		std::cout << "Couldn't initialize GLEW" << std::endl;
-		exit(0);
-	}
-
-	glutDisplayFunc(display);
-	glutIdleFunc(display);
-
-	///glutReshapeFunc(reshape);
-	
-	//setTexture(gl_src_image, img, GL_TEXTURE1);
-	setTexture(high_tex, high, GL_TEXTURE1);
-	setTexture(low_tex, low, GL_TEXTURE2);
-	cv::Mat vel = flow0.m_velocity_map;
-	setTexture(velocity_tex1, vel, GL_TEXTURE3);
-	setTexture(opacity_tex1, flow0.m_opacity_map, GL_TEXTURE4);
-	init();
-	//glutMainLoop();
-	
+#ifdef __GPU
+	FlowGPU flowGpu(argc, argv, flow0.m_velocity_map, flow0.m_opacity_map, high, low, Tframe * 10);
 #endif
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
@@ -890,27 +588,13 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 				cv::Vec3f f1 = p_w1[col];
 
 				float k = 1.f / (Nloop - 1.f) * i;
-				p_dst[col] += color_blend(f0, f1, k, maxVal);
+				p_dst[col] = color_blend(f0, f1, k, maxVal);
 			}
 		}
+		dst += low;
 #endif
 #ifdef __GPU
-		g_frame1 = i;
-		g_frame2 = -Nloop + i;
-		g_k = 1.f / (Nloop - 1.f) * i;
-		glProgram.setUniform("velocity_map", 3);
-		glProgram.setUniform("opacity_map", 4);
-		glProgram.setUniform("high", 1);
-		glProgram.setUniform("low", 2);
-		glProgram.setUniform("tframe", g_Tframe);
-		glProgram.setUniform("frame1", g_frame1);
-		glProgram.setUniform("frame2", g_frame2);
-		glProgram.setUniform("k", g_k);
-		glProgram.setUniform("max_del", g_max_del);
-		glProgram.setUniform("viewPort", glm::vec2(1.f / (width - 1), 1.f / (height - 1)));
-		//glutMainLoopEvent();
-		display();
-		g_frame.copyTo(dst);
+		dst = flowGpu.display(i, -Nloop + i, 1.f / (Nloop - 1.f) * i);
 #endif
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
