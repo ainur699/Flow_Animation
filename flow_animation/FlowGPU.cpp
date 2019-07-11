@@ -64,7 +64,7 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 	}
 	setTexture(high_tex, high, GL_TEXTURE1);
 	setTexture(low_tex, low, GL_TEXTURE2);
-	setTexture(velocity_tex1, velocity, GL_TEXTURE3);
+	setTexture(velocity_tex1, velocity, GL_TEXTURE3, false);
 	setTexture(opacity_tex1, opacity, GL_TEXTURE4);
 
 	glEnable(GL_TEXTURE_2D);
@@ -106,9 +106,9 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	if (switch_channels) {
 		cv::cvtColor(tx, tx, cv::COLOR_BGR2RGBA);
 	}
-	//else {
-	//	cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
-	//}
+	else {
+		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
+	}
 	ASSERT(tx.type() == 29);
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);

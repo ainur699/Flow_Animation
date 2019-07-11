@@ -503,13 +503,13 @@ public:
 				if (x < 0 || x >= dst.cols || y < 0 || y >= dst.rows) {
 					p_dst[j] = p_src[j];
 				}
-				//else if (p_vec[j] != cv::Vec2f() && m_velocity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
-				//	p_dst[j] = p_src[j];
-				//}
+				else if (p_vec[j] != cv::Vec2f() && m_velocity_map.at<cv::Vec2f>(y, x) == cv::Vec2f()) {
+					p_dst[j] = p_src[j];
+				}
 				else {
 					cv::Vec3f color1, color2;
-					//BilinInterp(m_source, x, y, &color1[0]);
-					color1 = m_source.at<cv::Vec3f>(y, x);
+					BilinInterp(m_source, x, y, &color1[0]);
+					//color1 = m_source.at<cv::Vec3f>(y, x);
 					color2 = p_src[j];
 
 					if (color1 != cv::Vec3f()) {
@@ -555,8 +555,11 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
+	std::cout << Nloop;
 
-
+	double Mmin, Mmax;
+	cv::minMaxLoc(high, &Mmin, &Mmax);
+	float maxVal = std::max(std::abs(Mmin), Mmax);
 	FlowModel flow0(high, field_map, opacity_map, Tframe);
 	FlowModel flow1(high, field_map, opacity_map, Tframe);
 	cv::Mat wave0(src.size(), src.type()), wave1(src.size(), src.type());
@@ -571,9 +574,16 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 
 #ifdef __GPU
 	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe);
+#define __LOOP
 #endif
+
+#ifndef __LOOP
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
+#else
+	int i = 0;
+	while(true) {
+#endif	
 #ifdef __CPU
 		flow0.GetNext(wave0, i);
 		flow1.GetNext(wave1, -Nloop + i);
@@ -595,17 +605,14 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 #endif
 #ifdef __GPU
 		dst = flowGpu.display(i, -Nloop + i, 1.f / (Nloop - 1.f) * i);
+#ifdef __LOOP
+		i = (i + 1) % (int)Nloop;
 #endif
-#if 0
-		static int pos = 0;
-		dst.convertTo(dst, CV_32FC3);
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_high.png", (high * 500));
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_dst.png", (dst * 500));
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_1.png", (dst - high) * 1500);
-		cv::imwrite("diffs/d" + std::to_string(pos++) + "_2.png", (high - dst) * 1500);
 #endif
+#ifndef __LOOP
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
+#endif
 	}
 
 	///init writer

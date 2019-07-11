@@ -86,7 +86,7 @@ private:
 	vec4 flow(float frame) {
 		vec2 cur = gl_FragCoord.xy;
 		ivec2 icur = ivec2(cur);
-		vec2 delta = -tframe * vec2(texture(velocity_map, TextCoord));
+		vec4 delta = -tframe * texture(velocity_map, TextCoord);
 		vec2 xy = cur;
 		xy.x += frame * delta[0];
 		xy.y -= frame * delta[1];
@@ -96,7 +96,7 @@ private:
 		if (xy.x < 0.0 || xy.x > 1.0 || xy.y < 0.0 || xy.y > 1.0) {
 			return texture(high, TextCoord);
 		}
-		if (delta != vec2(0.0) && vec2(texture(velocity_map, xy)) == vec2(0.0)) {
+		if (vec2(delta) != vec2(0.0) && vec2(texture(velocity_map, xy)) == vec2(0.0)) {
 			return texture(high, TextCoord);
 		}	
 		vec4 color1 = texture(high, xy);
