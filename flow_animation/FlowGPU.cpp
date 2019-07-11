@@ -69,7 +69,7 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 
 	glEnable(GL_TEXTURE_2D);
 	//glEnable(GL_DEPTH_TEST);
-	glClearColor(0.f, 0.f, 0.f, 1.f);
+	glClearColor(1.f, 0.f, 0.f, 1.f);
 
 	glProgram.PrintGPUVersion();
 	glProgram.compileShader(vert_shader, GLSLShader::VERTEX);
@@ -80,13 +80,10 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 	glProgram.findUniformLocations();
 }
 
-#define __DEBUG
 #if defined( _WIN32 )
-#ifdef __DEBUG
 #define ASSERT(x) if(!(x)) __debugbreak()
 #else
 #define ASSERT(x)
-#endif
 #endif
 void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_channels) {
 	cv::Mat tx;
@@ -109,9 +106,9 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	if (switch_channels) {
 		cv::cvtColor(tx, tx, cv::COLOR_BGR2RGBA);
 	}
-	else {
-		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
-	}
+	//else {
+	//	cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
+	//}
 	ASSERT(tx.type() == 29);
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);

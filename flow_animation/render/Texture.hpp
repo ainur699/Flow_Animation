@@ -37,7 +37,7 @@ public:
 	Texture2D() {}
 	virtual ~Texture2D() {}
 
-	void createColorTexture(const cv::Mat &image, GLint magFilter, GLint minFilter, GLenum type = GL_FLOAT, GLint internalFormat = GL_RGBA);
+	void createColorTexture(const cv::Mat &image, GLint magFilter, GLint minFilter, GLenum type = GL_FLOAT, GLint internalFormat = GL_RGBA32F);
 	void createColorTexture(int width, int height, GLint magFilter, GLint minFilter);
 	void createDepthTexture(int width, int height, GLint magFilter, GLint minFilter);
 

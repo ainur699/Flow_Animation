@@ -570,7 +570,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	height = src.rows;
 
 #ifdef __GPU
-	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe * 10);
+	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe);
 #endif
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
@@ -599,10 +599,10 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 #if 0
 		static int pos = 0;
 		dst.convertTo(dst, CV_32FC3);
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_low.png", (low * 500));
+		cv::imwrite("diffs/d" + std::to_string(pos) + "_high.png", (high * 500));
 		cv::imwrite("diffs/d" + std::to_string(pos) + "_dst.png", (dst * 500));
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_1.png", (dst - low) * 1500);
-		cv::imwrite("diffs/d" + std::to_string(pos++) + "_2.png", (low - dst) * 1500);
+		cv::imwrite("diffs/d" + std::to_string(pos) + "_1.png", (dst - high) * 1500);
+		cv::imwrite("diffs/d" + std::to_string(pos++) + "_2.png", (high - dst) * 1500);
 #endif
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());

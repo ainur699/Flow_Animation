@@ -87,8 +87,8 @@ private:
 		vec2 cur = gl_FragCoord.xy;
 		ivec2 icur = ivec2(cur);
 		vec2 delta = -tframe * vec2(texture(velocity_map, TextCoord));
-		vec2 xy = cur;// + frame * delta;
-		//xy.x += frame * delta[0];
+		vec2 xy = cur;
+		xy.x += frame * delta[0];
 		xy.y -= frame * delta[1];
 		ivec2 ixy = ivec2(xy);
 		xy.x *= viewPort.x;
@@ -109,11 +109,7 @@ private:
 		vec4 wave0 = flow(frame1);
 		vec4 wave1 = flow(frame2);
 		vec3 lowvec = vec3(texture(low, TextCoord));
-		//FragColor = texture(high, TextCoord);
 		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
-//* 0.7 + texture(velocity_map, TextCoord) * 0.3 ;
-		//FragColor = wave0;
-		//FragColor = texture(low, TextCoord) + wave1;
 	}
 )glsl";
 
