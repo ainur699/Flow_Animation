@@ -1,7 +1,8 @@
 #include "FlowGPU.h"
 #include <iostream>
 
-FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe): m_Tframe(Tframe) {
+FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr)
+: m_Tframe(Tframe), num_frames(num_fr), m_frame1(0), m_frame2(-num_fr), m_k(0), m_i(0){
 	m_width = high.cols;
 	m_height = high.rows;
 
@@ -21,7 +22,18 @@ FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv:
 
 }
 
-cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
+
+void FlowGPU::updateSpeed(int Nloop) {
+	m_i /= num_frames;
+	m_i *= Nloop;
+	num_frames = Nloop;
+	m_Tframe = 1.f / num_frames;
+	m_k = 1.f / (num_frames - 1.f) * m_i;
+	m_frame1 = m_i;
+	m_frame2 = -num_frames + m_i;
+}
+
+cv::Mat FlowGPU::display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	static const std::vector<float> positionData = {
 		-1, -1,
@@ -38,10 +50,15 @@ cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
 
 	glProgram.setAtribute(0, positionData, 2);
 	glProgram.setAtribute(1, textureData, 2);
-	glProgram.setUniform("frame1", frame1);
-	glProgram.setUniform("frame2", frame2);
-	glProgram.setUniform("k", k);
+	//i, -Nloop + i, 1.f / (Nloop - 1.f) * i
+	extern int trackbar_Var;
+	updateSpeed(trackbar_Var + 2);
+	glProgram.setUniform("frame1", m_frame1);
+	glProgram.setUniform("frame2", m_frame2);
+	glProgram.setUniform("tframe", m_Tframe);
+	glProgram.setUniform("k", m_k);
 	glProgram.draw(GL_QUADS, 0, positionData.size());
+	m_i = (int)(m_i + 1) % (int)num_frames;
 
 	cv::Mat frame(m_height, m_width, CV_32FC4);
 	glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);
@@ -106,10 +123,10 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	if (switch_channels) {
 		cv::cvtColor(tx, tx, cv::COLOR_BGR2RGBA);
 	}
-	//else {
-	//	cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
-	//}
-	ASSERT(tx.type() == 29);
+	else {
+		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
+	}
+	ASSERT(tx.type() == 29);//CV_32FC4
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);
 	cv::flip(tx, tx, 0);

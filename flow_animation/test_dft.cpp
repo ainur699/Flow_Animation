@@ -546,7 +546,7 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 }
 
 int width, height;
-int var = 0;
+int trackbar_Var = 24;
 
 
 void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop,
@@ -555,7 +555,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
-
 
 	FlowModel flow0(high, field_map, opacity_map, Tframe);
 	FlowModel flow1(high, field_map, opacity_map, Tframe);
@@ -568,11 +567,12 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	src.copyTo(img);
 	width = src.cols;
 	height = src.rows;
-
 #ifdef __GPU
-	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe);
+	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe, Nloop);
 #endif
-	for (int i = 0; i < Nloop; i++) {
+	//for (int i = 0; i < Nloop; i++) {
+	int i = 0;
+	while(true) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
 #ifdef __CPU
 		flow0.GetNext(wave0, i);
@@ -594,18 +594,12 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 		dst += low;
 #endif
 #ifdef __GPU
-		dst = flowGpu.display(i, -Nloop + i, 1.f / (Nloop - 1.f) * i);
+		dst = flowGpu.display();
 #endif
-#if 0
-		static int pos = 0;
-		dst.convertTo(dst, CV_32FC3);
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_high.png", (high * 500));
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_dst.png", (dst * 500));
-		cv::imwrite("diffs/d" + std::to_string(pos) + "_1.png", (dst - high) * 1500);
-		cv::imwrite("diffs/d" + std::to_string(pos++) + "_2.png", (high - dst) * 1500);
-#endif
+		i++;
+		i %= int(Nloop + .1f);
 		dst.convertTo(frame, CV_8UC3, 255.0);
-		video.push_back(frame.clone());
+		if (video.size() < Nloop) video.push_back(frame.clone());
 	}
 
 	///init writer
@@ -644,12 +638,13 @@ void trackbar()
 {
 	cv::namedWindow("trackbar");
 	cv::resizeWindow("trackbar", 500, 500);
-	cv::createTrackbar("height", "trackbar", &var, 100);
+	cv::createTrackbar("height", "trackbar", &trackbar_Var, 100);
 	while (true)
 	{
 		cv::waitKey();
 	}
 }
+
 
 
 int main(int argc, char **argv)
@@ -673,7 +668,7 @@ int main(int argc, char **argv)
 	std::filesystem::path dir("C:/Users/User/Desktop/flow_animation/hair");
 	std::filesystem::directory_iterator it(dir), end;
 
-
+	std::thread(trackbar).detach();
 
 	for (int count = 0; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());

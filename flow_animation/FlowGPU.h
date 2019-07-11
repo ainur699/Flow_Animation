@@ -8,16 +8,19 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
+#include <thread>
+#include <mutex>
 class FlowGPU
 {
 public:
 	FlowGPU() {}
 	~FlowGPU() {}
-	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe);
+	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr);
 	void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool switch_channels = true);
 	static cv::Mat _rendertestmask(cv::Mat& testimage);
-	cv::Mat display(float frame1, float frame2, float k);
+	cv::Mat display();
 	void init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low);
+	void updateSpeed(int Nloop);
 private:
 	GLSLProgram glProgram;
 	Texture2D high_tex;
@@ -28,7 +31,9 @@ private:
 
 	float m_Tframe, m_maxVal_frac;
 	int m_width, m_height;
-	int num_frames;
+	float num_frames;
+	float m_frame1, m_frame2, m_k, m_i;
+	std::mutex m_mutex;
 
 	inline static const std::string vert_shader = R"glsl(
 	#version 430
@@ -88,7 +93,7 @@ private:
 		ivec2 icur = ivec2(cur);
 		vec2 delta = -tframe * vec2(texture(velocity_map, TextCoord));
 		vec2 xy = cur;
-		xy.x += frame * delta[0];
+		xy.x -= frame * delta[0];
 		xy.y -= frame * delta[1];
 		ivec2 ixy = ivec2(xy);
 		xy.x *= viewPort.x;
