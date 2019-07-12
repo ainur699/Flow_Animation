@@ -536,6 +536,10 @@ public:
 	float m_Tframe;
 };
 
+
+int tb_powerThresh = 5;
+int tb_gammaBound = 5;
+
 inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const float &x, const float &max_val)
 {
 	cv::Vec3f dst;
@@ -544,7 +548,25 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 	for (int i = 0; i < 3; i++) {
 		float v = std::abs(p2[i]) / max_val;
 		float p = (v >= 0.5f) ? (-1.6f * v + 1.8f) : (-8.f * v + 5.f);
+		
+		//float P;
+		//float add;
+		//float mul;
+		//float thr = tb_powerThresh / 10.f;
+		//if (v < thr) {
+		//	add = tb_gammaBound;
+		//	mul = (1.f - tb_gammaBound) / thr;
+		//}
+		//else {
+		//	add = (thr / tb_gammaBound - 1.f) / (thr - 1.f);
+		//	mul = 1.f / tb_gammaBound - add;
+		//}
+		//
+		//P = mul * v + add;
+
 		float k = std::pow(x, p);
+		//ASSERT(P - p < 1e-5);
+		//ASSERT(P - p > -1e-5);
 		dst[i] = (1 - k) * p1[i] + k * p2[i];
 	}
 
@@ -574,11 +596,15 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &field
 	height = src.rows;
 	cdt_struct& cur_cdt = cdts[trackbar_cdt_threshold][trackbar_cdt_merge];
 	FlowGPU flowGpu(argc, argv, field_map, opacity_map, cur_cdt.high, cur_cdt.low, Tframe, Nloop);
+	//glutDisplayFunc(display);
+	//glutIdleFunc(display);
+
 #define __LOOP
 #ifndef __LOOP
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
 #else
+	//glutMainLoop();
 	int i = 0;
 	while (true) {
 #endif
@@ -638,21 +664,19 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	src.copyTo(img);
 	width = src.cols;
 	height = src.rows;
-#ifdef __GPU
-	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe, Nloop);
-#endif
+	cv::imwrite("high.png", high * 255);
 
-#ifndef __LOOP
+	
+
 	for (int i = 0; i < Nloop; i++) {
 		std::cout << i + 1 << " of " << Nloop << std::endl;
-#else
-	int i = 0;
-	while(true) {
-#endif	
-#ifdef __CPU
 		flow0.GetNext(wave0, i);
 		flow1.GetNext(wave1, -Nloop + i);
 		low.copyTo(dst);
+		
+		cv::imwrite("wave0.png", wave0 * 255);
+		cv::imwrite("wave1.png", wave1 * 255);
+		
 		for (int row = 0; row < dst.rows; row++) {
 			cv::Vec3f *p_w0 = wave0.ptr<cv::Vec3f>(row);
 			cv::Vec3f *p_w1 = wave1.ptr<cv::Vec3f>(row);
@@ -667,17 +691,8 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 			}
 		}
 		dst += low;
-#endif
-#ifdef __GPU
-		dst = flowGpu.display();
-#ifdef __LOOP
-		i = (i + 1) % (int)Nloop;
-#endif
-#endif
-#ifndef __LOOP
 		dst.convertTo(frame, CV_8UC3, 255.0);
 		video.push_back(frame.clone());
-#endif
 	}
 
 	///init writer
@@ -720,6 +735,9 @@ void trackbar()
 	cv::createTrackbar("T^(-1)", "trackbar", &trackbar_Tframe, 150);
 	cv::createTrackbar("thrsh", "trackbar", &trackbar_cdt_threshold, 9);
 	cv::createTrackbar("merge", "trackbar", &trackbar_cdt_merge, 9);
+	cv::createTrackbar("blend thr", "trackbar", &tb_powerThresh, 9);
+	cv::createTrackbar("blend bnds", "trackbar", &tb_gammaBound, 9);
+
 	while (true)
 	{
 		cv::waitKey();
@@ -789,15 +807,16 @@ int main(int argc, char **argv)
 			std::vector<cv::Point2f> contours_points, normals_points;
 			CreateVectorField(mask, opacity_map, velocity_field, direction, contours_points, normals_points, Material::HAIR);
 
-			//cv::Mat high, low;
-			//FrequencyDec(fimg, 0.07f, 0.04f, high, low);
-
+			
+			
+			float Tloop = 2.5f;
+#ifdef __GPU
 			std::vector<float> thresholds(10);
 			std::vector<float> merges(10);
 			float start_threshold = 0.01f;
 			float end_threshold = 0.13f;
 			float start_merge = 0.01f;
-			float end_merge = 0.13f;
+			float end_merge = 0.9f;
 
 			for (int i = 0; i < thresholds.size(); i++) {
 				thresholds[i] = (start_threshold * (10.f - i) + end_threshold * (i)) / 10.f;
@@ -822,10 +841,13 @@ int main(int argc, char **argv)
 					//std::cout << "check types(i, j, high.type, low.type): " << i << " " << j << " " << cdts[i][j].high.type() << " " << cdts[i][j].high.type() << "\n";
 				}
 			}
-
-			float Tloop = 2.5f;
-			
 			PhotoLoop(fimg, mask, opacity_map, velocity_field, out_name, Tloop, argc, argv);
+#else
+			cv::Mat high, low;
+			FrequencyDec(fimg, 0.07f, 0.04f, high, low, -1);
+			std::cout << high.type() << "\n";
+			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop, argc, argv);
+#endif
 			break;
 		}
 		case Material::WATER:

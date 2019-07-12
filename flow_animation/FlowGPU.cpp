@@ -32,6 +32,7 @@ void FlowGPU::updateSpeed(int Nloop, float Tframe) {
 }
 
 cv::Mat FlowGPU::display() {
+	Timer timer;
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	static const std::vector<float> positionData = {
 		-1, -1, 1, -1,
@@ -49,18 +50,27 @@ cv::Mat FlowGPU::display() {
 	extern int trackbar_Tframe;
 	updateSpeed(trackbar_Var + 2, 1.f / trackbar_Tframe);
 	extern std::vector<std::vector<cdt_struct> > cdts;
+	static int thresh = 0;
+	static int merge = 0;
 	extern int trackbar_cdt_threshold;
 	extern int trackbar_cdt_merge;
-	cdt_struct& cur_cdt = cdts[trackbar_cdt_threshold][trackbar_cdt_merge];
-	setTexture(high_tex, cur_cdt.high, GL_TEXTURE1, false);
-	setTexture(low_tex, cur_cdt.low, GL_TEXTURE2, false);
-	glProgram.setUniform("high", 1);
-	glProgram.setUniform("low", 2);
-	glProgram.setUniform("max_del", cur_cdt.maxdel);
+	if (trackbar_cdt_threshold != thresh || trackbar_cdt_merge != merge) {
+		cdt_struct& cur_cdt = cdts[trackbar_cdt_threshold][trackbar_cdt_merge];
+		setTexture(high_tex, cur_cdt.high, GL_TEXTURE1, false);
+		setTexture(low_tex, cur_cdt.low, GL_TEXTURE2, false);
+		glProgram.setUniform("high", 1);
+		glProgram.setUniform("low", 2);
+		glProgram.setUniform("max_del", cur_cdt.maxdel);
+	}
 	glProgram.setUniform("frame1", m_i);
 	glProgram.setUniform("frame2", -num_frames + m_i);
 	glProgram.setUniform("tframe", m_Tframe);
 	glProgram.setUniform("k", 1.f / (num_frames - 1.f) * m_i);
+	extern int tb_gammaBound;
+	extern int tb_powerThresh;
+	glProgram.setUniform("thr", tb_powerThresh / 10.f);
+	glProgram.setUniform("tb_gammaBound", (float) tb_gammaBound);
+
 	glProgram.draw(GL_QUADS, 0, positionData.size());
 	m_i = (int)(m_i + 1) % (int)num_frames;
 

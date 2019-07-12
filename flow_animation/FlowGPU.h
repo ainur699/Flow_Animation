@@ -10,6 +10,7 @@
 #include <opencv2/highgui.hpp>
 #include <thread>
 #include <mutex>
+#include <iostream>
 
 #if defined( _WIN32 )
 #define ASSERT(x) if(!(x)) __debugbreak()
@@ -23,6 +24,40 @@ struct cdt_struct {
 	cv::Mat low;
 };
 
+struct Timer {
+	std::chrono::time_point<std::chrono::steady_clock> startp, endp;
+	std::chrono::duration<float> duration;
+	float ms[4];
+
+	Timer() {
+		startp = std::chrono::high_resolution_clock::now();
+		for (int i = 0; i < 4; i++) ms[i] = 0.0;
+	}
+	~Timer() {
+		//end();
+	}
+
+	void start() {
+		startp = std::chrono::high_resolution_clock::now();
+	}
+
+	void end() {
+		endp = std::chrono::high_resolution_clock::now();
+		duration = endp - startp;
+		float ms = duration.count() * 1000.0f;
+		std::cout << "duration: " << ms << " ms\n";
+	}
+
+	float elapsed() {
+		duration = std::chrono::high_resolution_clock::now() - startp;
+		float ms = duration.count() * 1000.0f;
+		return ms;
+	}
+
+	float processTime() {
+		return duration.count() * 1000.0f;
+	}
+};
 
 class FlowGPU
 {
@@ -88,6 +123,8 @@ private:
 	uniform float frame2;
 	uniform float k;
 	uniform float max_del;
+	uniform float thr;
+	uniform float tb_gammaBound;
 
 	layout (location = 0) out vec4 FragColor;
 
@@ -95,9 +132,21 @@ private:
 		vec3 ret;
 		vec4 v = abs(p2) * max_del;		
 		for (int i = 0; i < 3; i++)
-		{
-			float p = (v[i] >= 0.5) ? (-1.6 * v[i] + 1.8) : (-8.0 * v[i] + 5.0);
-			float k = pow(x, p);
+		{	
+			float add;
+			float mul;
+			if (v[i] < thr) {
+				add = tb_gammaBound;
+				mul = (1.0 - tb_gammaBound) / thr;
+			}
+			else {
+				add = (thr / tb_gammaBound - 1.0) / (thr - 1.0);
+				mul = 1.0 / tb_gammaBound - add;
+			}
+			float P = mul * v[i] + add;
+
+			//float p = (v[i] >= 0.5) ? (-1.6 * v[i] + 1.8) : (-8.0 * v[i] + 5.0);
+			float k = pow(x, P);
 			ret[i] = (1.0 - k) * p1[i] + k * p2[i];
 		}
 		return ret;
