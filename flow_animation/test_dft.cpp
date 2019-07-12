@@ -11,6 +11,7 @@
 #include <dlib/image_processing.h>
 #include "FlowGPU.h"
 #define __GPU
+#define __LOOP
 //#define __CPU
 
 enum class Material
@@ -393,7 +394,7 @@ int getOptimalDCTSize(int n)
 	return 2 * cv::getOptimalDFTSize((n + 1) / 2);
 }
 
-void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &high, cv::Mat &low)
+void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &high, cv::Mat &low, int i = -1, int j = 0)
 {
 	int w = getOptimalDCTSize(fsrc.cols);
 	int h = getOptimalDCTSize(fsrc.rows);
@@ -445,11 +446,16 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 
 	cv::merge(hvec, high);
 	cv::merge(lvec, low);
+#if 1
+	if (i != -1) {
+		//cv::imwrite("cdts/high" + std::to_string(i) + "_" + std::to_string(j) + ".png", high * 255);
+		//cv::imwrite("cdts/low" + std::to_string(i) + "_" + std::to_string(j) + ".png", low * 255);
 
-#if 0
-	cv::imwrite("res_debug/fr_high.png", 255.0 * high);
-	cv::imwrite("res_debug/fr_low.png", 255.0 * low);
-	cv::imwrite("res_debug/fr_low_high.png", 255.0 * (low + high));
+		cv::cvtColor(high, high, cv::COLOR_BGR2RGBA);
+		cv::flip(high, high, 0);
+		cv::cvtColor(low, low, cv::COLOR_BGR2RGBA);
+		cv::flip(low, low, 0);
+	}
 #endif
 }
 
@@ -548,6 +554,67 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 int width, height;
 int trackbar_Var = 60;
 int trackbar_Tframe = 24;
+int trackbar_cdt_threshold = 8;
+int trackbar_cdt_merge = 4;
+std::vector<std::vector<cdt_struct> > cdts(10, std::vector<cdt_struct>(10));;
+
+void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &field_map, std::string out_name, float Tloop,
+	int argc, char** argv)
+{
+	const float fps = 24.f;
+	const float Tframe = 1.f / fps;
+	const float Nloop = std::floor(Tloop / Tframe);
+	cv::Mat dst(src.size(), src.type());
+	cv::Mat frame(src.size(), CV_8UC3);
+	std::vector<cv::Mat> video;
+
+	cv::Mat img;
+	src.copyTo(img);
+	width = src.cols;
+	height = src.rows;
+	cdt_struct& cur_cdt = cdts[trackbar_cdt_threshold][trackbar_cdt_merge];
+	FlowGPU flowGpu(argc, argv, field_map, opacity_map, cur_cdt.high, cur_cdt.low, Tframe, Nloop);
+#define __LOOP
+#ifndef __LOOP
+	for (int i = 0; i < Nloop; i++) {
+		std::cout << i + 1 << " of " << Nloop << std::endl;
+#else
+	int i = 0;
+	while (true) {
+#endif
+		dst = flowGpu.display();
+#ifdef __LOOP
+		i = (i + 1) % (int)Nloop;
+#else
+		dst.convertTo(frame, CV_8UC3, 255.0);
+		video.push_back(frame.clone());
+#endif
+	}
+
+	///init writer
+	VideoWriterMemory writer;
+	IVideo_Encoder *encoder = video_encoder_create();
+	encoder->Init(&writer, src.cols, src.rows, fps, 4000000);
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < video.size(); j++) {
+			unsigned char *p = video[j].ptr(0, 0);
+			encoder->Addframe(p, video[j].step, 1);
+		}
+	}
+
+	encoder->Finalize();
+	encoder->Destroy();
+
+	uchar *d;
+	size_t len;
+	writer.GetBuffer(d, len);
+	std::ofstream out(out_name, std::ios::binary);
+	out.write((char*)d, len);
+	out.close();
+	delete d;
+}
+
 
 
 void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop,
@@ -573,7 +640,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	height = src.rows;
 #ifdef __GPU
 	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe, Nloop);
-#define __LOOP
 #endif
 
 #ifndef __LOOP
@@ -650,12 +716,18 @@ void trackbar()
 {
 	cv::namedWindow("trackbar");
 	cv::resizeWindow("trackbar", 500, 500);
-	cv::createTrackbar("Nloop", "trackbar", &trackbar_Var, 100);
-	cv::createTrackbar("Tframe", "trackbar", &trackbar_Tframe, 100);
+	cv::createTrackbar("Nloop", "trackbar", &trackbar_Var, 200);
+	cv::createTrackbar("T^(-1)", "trackbar", &trackbar_Tframe, 150);
+	cv::createTrackbar("thrsh", "trackbar", &trackbar_cdt_threshold, 9);
+	cv::createTrackbar("merge", "trackbar", &trackbar_cdt_merge, 9);
 	while (true)
 	{
 		cv::waitKey();
 	}
+}
+
+void prepCDT() {
+
 }
 
 
@@ -717,41 +789,43 @@ int main(int argc, char **argv)
 			std::vector<cv::Point2f> contours_points, normals_points;
 			CreateVectorField(mask, opacity_map, velocity_field, direction, contours_points, normals_points, Material::HAIR);
 
-			cv::Mat high, low;
-			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
+			//cv::Mat high, low;
+			//FrequencyDec(fimg, 0.07f, 0.04f, high, low);
 
-			std::vector<std::vector<std::pair<cv::Mat, cv::Mat> > > cdts(10, std::vector<std::pair<cv::Mat, cv::Mat> >(10));
-			std::vector<float> thresholds = {
-				0.03, 0.035, 0.04, 0.045, 0.05,
-				0.055, 0.06, 0.065, 0.07, 0.075
-			};
-			std::vector<float> merges = {
-				0.03, 0.035, 0.04, 0.045, 0.05,
-				0.055, 0.06, 0.065, 0.07, 0.075
-			};
+			std::vector<float> thresholds(10);
+			std::vector<float> merges(10);
+			float start_threshold = 0.01f;
+			float end_threshold = 0.13f;
+			float start_merge = 0.01f;
+			float end_merge = 0.13f;
+
+			for (int i = 0; i < thresholds.size(); i++) {
+				thresholds[i] = (start_threshold * (10.f - i) + end_threshold * (i)) / 10.f;
+				merges[i] = (start_merge * (10.f - i) + end_merge * (i)) / 10.f;
+			}
+
+			std::vector<std::thread> cdt_threads;
 			float mlast = merges[merges.size() - 1];
-
 			for (int i = 0; i < 10; i++) {
 				for (int j = 0; j < 10; j++) {
-					FrequencyDec(fimg, thresholds[i], merges[j] / mlast * thresholds[i], cdts[i][j].first, cdts[i][j].second);
-					cv::imwrite("cdts/high" + std::to_string(i) + "_" + std::to_string(j) + ".png", cdts[i][j].first * 255);
-					cv::imwrite("cdts/low" + std::to_string(i) + "_" + std::to_string(j) + ".png", cdts[i][j].second * 255);
+					cdt_threads.push_back(std::thread(FrequencyDec, std::ref(fimg), thresholds[i], merges[j] / mlast * thresholds[i], std::ref(cdts[i][j].high), std::ref(cdts[i][j].low), i, j));
 				}
 			}
-			
-			
-			//for (int i = 0; i < thresholds.size(); i++) {
-			//	cdt_params[thresholds[i]] = std::vector<float>(0);
-			//	for (int j = 0; j < merges.size(); j++) {
-			//		cdt_params[thresholds[i]].push_back(merges[j] / merges[merges.size()-1] * thresholds[i]);
-			//	}
-			//}
-
-
+			for (int i = 0; i < cdt_threads.size(); i++) {
+				cdt_threads[i].join();
+			}
+			for (int i = 0; i < 10; i++) {
+				for (int j = 0; j < 10; j++) {
+					double Mmin, Mmax;
+					cv::minMaxLoc(cdts[i][j].high, &Mmin, &Mmax);
+					cdts[i][j].maxdel = 1.f / std::max(std::abs(Mmin), Mmax);
+					//std::cout << "check types(i, j, high.type, low.type): " << i << " " << j << " " << cdts[i][j].high.type() << " " << cdts[i][j].high.type() << "\n";
+				}
+			}
 
 			float Tloop = 2.5f;
 			
-			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop, argc, argv);
+			PhotoLoop(fimg, mask, opacity_map, velocity_field, out_name, Tloop, argc, argv);
 			break;
 		}
 		case Material::WATER:

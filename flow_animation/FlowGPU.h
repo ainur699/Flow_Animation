@@ -17,6 +17,12 @@
 #define ASSERT(x)
 #endif
 
+struct cdt_struct {
+	float maxdel;
+	cv::Mat high;
+	cv::Mat low;
+};
+
 
 class FlowGPU
 {
@@ -24,7 +30,7 @@ public:
 	FlowGPU() {}
 	~FlowGPU() {}
 	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr);
-	void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool switch_channels = true);
+	void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool add_channels = true, bool switch_channels = true);
 	static cv::Mat _rendertestmask(cv::Mat& testimage);
 	cv::Mat display();
 	void init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low);
@@ -37,7 +43,6 @@ private:
 	Texture2D velocity_tex1;
 	Texture2D opacity_tex1;
 	std::vector<Texture2D>f_texs;
-
 
 	float m_Tframe, m_maxVal_frac;
 	int m_width, m_height;
@@ -126,7 +131,7 @@ private:
 		vec4 wave1 = flow(frame2);
 		vec3 lowvec = vec3(texture(low, TextCoord));
 		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
-		//FragColor = texture(high, TextCoord);
+		//FragColor = texture(low, TextCoord);
 	}
 )glsl";
 

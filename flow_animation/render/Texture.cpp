@@ -10,10 +10,15 @@ Texture::Texture()
 }
 
 
+void Texture::remove() {
+	if (m_id != std::numeric_limits<GLuint>::max()) glDeleteTextures(1, &m_id);
+}
+
+
 //-----------------------------------------------------------------------------
 Texture::~Texture()
 {
-	if (m_id != std::numeric_limits<GLuint>::max()) glDeleteTextures(1, &m_id);
+	remove();
 }
 
 

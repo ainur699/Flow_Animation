@@ -48,6 +48,15 @@ cv::Mat FlowGPU::display() {
 	extern int trackbar_Var;
 	extern int trackbar_Tframe;
 	updateSpeed(trackbar_Var + 2, 1.f / trackbar_Tframe);
+	extern std::vector<std::vector<cdt_struct> > cdts;
+	extern int trackbar_cdt_threshold;
+	extern int trackbar_cdt_merge;
+	cdt_struct& cur_cdt = cdts[trackbar_cdt_threshold][trackbar_cdt_merge];
+	setTexture(high_tex, cur_cdt.high, GL_TEXTURE1, false);
+	setTexture(low_tex, cur_cdt.low, GL_TEXTURE2, false);
+	glProgram.setUniform("high", 1);
+	glProgram.setUniform("low", 2);
+	glProgram.setUniform("max_del", cur_cdt.maxdel);
 	glProgram.setUniform("frame1", m_i);
 	glProgram.setUniform("frame2", -num_frames + m_i);
 	glProgram.setUniform("tframe", m_Tframe);
@@ -74,9 +83,9 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 		std::cout << "Couldn't initialize GLEW" << std::endl;
 		exit(0);
 	}
-	setTexture(high_tex, high, GL_TEXTURE1);
-	setTexture(low_tex, low, GL_TEXTURE2);
-	setTexture(velocity_tex1, velocity, GL_TEXTURE3, false);
+	setTexture(high_tex, high, GL_TEXTURE1, false);
+	setTexture(low_tex, low, GL_TEXTURE2, false);
+	setTexture(velocity_tex1, velocity, GL_TEXTURE3, true, false);
 	setTexture(opacity_tex1, opacity, GL_TEXTURE4);
 
 	glEnable(GL_TEXTURE_2D);
@@ -93,7 +102,14 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 }
 
 
-void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_channels) {
+void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool add_channels, bool switch_channels) {
+	tex.remove();
+	if (!add_channels || img.type() == 29) {
+		tex.createColorTexture(img, GL_LINEAR, GL_LINEAR);
+		tex.bind(slot);
+		return;
+	}
+
 	cv::Mat tx;
 	int ch = img.channels();
 	switch (ch) {
@@ -117,11 +133,11 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	else {
 		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
 	}
-	ASSERT(tx.type() == 29);//CV_32FC4
+	ASSERT(tx.type() == 29);
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);
 	cv::flip(tx, tx, 0);
-	if (tx.type() == 29) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
+	tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
 	tex.bind(slot);
 }
 

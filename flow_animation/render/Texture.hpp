@@ -14,6 +14,7 @@ public:
 	virtual void resize(int width, int height) = 0;
 	virtual void bind(GLenum textureUnit) = 0;
 	virtual void unbind(GLenum textureUnit) = 0;
+	void remove();
 
 	int		width() const { return m_width; }
 	int		height() const { return m_height; }
@@ -77,7 +78,6 @@ public:
 	void resize(int width, int height);
 	void bind(GLenum textureUnit);
 	void unbind(GLenum textureUnit);
-
 protected:
 	void _create(
 		GLint internalFormat,
