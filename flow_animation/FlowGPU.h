@@ -8,16 +8,27 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
+#include <thread>
+#include <mutex>
+
+#if defined( _WIN32 )
+#define ASSERT(x) if(!(x)) __debugbreak()
+#else
+#define ASSERT(x)
+#endif
+
+
 class FlowGPU
 {
 public:
 	FlowGPU() {}
 	~FlowGPU() {}
-	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe);
+	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr);
 	void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool switch_channels = true);
 	static cv::Mat _rendertestmask(cv::Mat& testimage);
-	cv::Mat display(float frame1, float frame2, float k);
+	cv::Mat display();
 	void init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low);
+	void updateSpeed(int Nloop, float Trame);
 private:
 	GLSLProgram glProgram;
 	Texture2D high_tex;
@@ -25,10 +36,14 @@ private:
 	Texture2D low_tex;
 	Texture2D velocity_tex1;
 	Texture2D opacity_tex1;
+	std::vector<Texture2D>f_texs;
+
 
 	float m_Tframe, m_maxVal_frac;
 	int m_width, m_height;
-	int num_frames;
+	float num_frames;
+	float m_frame1, m_frame2, m_k, m_i;
+	std::mutex m_mutex;
 
 	inline static const std::string vert_shader = R"glsl(
 	#version 430
@@ -60,6 +75,7 @@ private:
 	uniform sampler2D opacity_map;
 	uniform sampler2D source;
 
+
 	uniform vec2 viewPort;
 
 	uniform float tframe;
@@ -88,7 +104,7 @@ private:
 		ivec2 icur = ivec2(cur);
 		vec4 delta = -tframe * texture(velocity_map, TextCoord);
 		vec2 xy = cur;
-		xy.x += frame * delta[0];
+		xy.x -= frame * delta[0];
 		xy.y -= frame * delta[1];
 		ivec2 ixy = ivec2(xy);
 		xy.x *= viewPort.x;
@@ -110,6 +126,7 @@ private:
 		vec4 wave1 = flow(frame2);
 		vec3 lowvec = vec3(texture(low, TextCoord));
 		FragColor = (vec4(lowvec + color_blend(wave0, wave1, k, max_del), 1.0));
+		//FragColor = texture(high, TextCoord);
 	}
 )glsl";
 

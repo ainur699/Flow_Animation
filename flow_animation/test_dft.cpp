@@ -398,7 +398,7 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 	int w = getOptimalDCTSize(fsrc.cols);
 	int h = getOptimalDCTSize(fsrc.rows);
 	float diag = std::sqrt(w*w + h * h);
-	float beg = (threshold - merge) * diag;
+	float beg = std::max(0.f, (threshold - merge)) * diag;
 	float end = (threshold + merge) * diag;
 
 	cv::Mat padded;
@@ -546,7 +546,8 @@ inline cv::Vec3f color_blend(const cv::Vec3f &p1, const cv::Vec3f &p2, const flo
 }
 
 int width, height;
-int var = 0;
+int trackbar_Var = 60;
+int trackbar_Tframe = 24;
 
 
 void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high, cv::Mat &low, cv::Mat &field_map, std::string out_name, float Tloop,
@@ -555,7 +556,6 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	const float fps = 24.f;
 	const float Tframe = 1.f / fps;
 	const float Nloop = std::floor(Tloop / Tframe);
-	std::cout << Nloop;
 
 	double Mmin, Mmax;
 	cv::minMaxLoc(high, &Mmin, &Mmax);
@@ -571,9 +571,8 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 	src.copyTo(img);
 	width = src.cols;
 	height = src.rows;
-
 #ifdef __GPU
-	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe);
+	FlowGPU flowGpu(argc, argv, field_map, opacity_map, high, low, Tframe, Nloop);
 #define __LOOP
 #endif
 
@@ -604,7 +603,7 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &high,
 		dst += low;
 #endif
 #ifdef __GPU
-		dst = flowGpu.display(i, -Nloop + i, 1.f / (Nloop - 1.f) * i);
+		dst = flowGpu.display();
 #ifdef __LOOP
 		i = (i + 1) % (int)Nloop;
 #endif
@@ -651,7 +650,8 @@ void trackbar()
 {
 	cv::namedWindow("trackbar");
 	cv::resizeWindow("trackbar", 500, 500);
-	cv::createTrackbar("height", "trackbar", &var, 100);
+	cv::createTrackbar("Nloop", "trackbar", &trackbar_Var, 100);
+	cv::createTrackbar("Tframe", "trackbar", &trackbar_Tframe, 100);
 	while (true)
 	{
 		cv::waitKey();
@@ -680,7 +680,7 @@ int main(int argc, char **argv)
 	std::filesystem::path dir("C:/Users/User/Desktop/flow_animation/hair");
 	std::filesystem::directory_iterator it(dir), end;
 
-
+	std::thread(trackbar).detach();
 
 	for (int count = 0; it != end; it++) {
 		cv::Mat image = cv::imread(it->path().string());
@@ -720,9 +720,36 @@ int main(int argc, char **argv)
 			cv::Mat high, low;
 			FrequencyDec(fimg, 0.07f, 0.04f, high, low);
 
+			std::vector<std::vector<std::pair<cv::Mat, cv::Mat> > > cdts(10, std::vector<std::pair<cv::Mat, cv::Mat> >(10));
+			std::vector<float> thresholds = {
+				0.03, 0.035, 0.04, 0.045, 0.05,
+				0.055, 0.06, 0.065, 0.07, 0.075
+			};
+			std::vector<float> merges = {
+				0.03, 0.035, 0.04, 0.045, 0.05,
+				0.055, 0.06, 0.065, 0.07, 0.075
+			};
+			float mlast = merges[merges.size() - 1];
+
+			for (int i = 0; i < 10; i++) {
+				for (int j = 0; j < 10; j++) {
+					FrequencyDec(fimg, thresholds[i], merges[j] / mlast * thresholds[i], cdts[i][j].first, cdts[i][j].second);
+					cv::imwrite("cdts/high" + std::to_string(i) + "_" + std::to_string(j) + ".png", cdts[i][j].first * 255);
+					cv::imwrite("cdts/low" + std::to_string(i) + "_" + std::to_string(j) + ".png", cdts[i][j].second * 255);
+				}
+			}
+			
+			
+			//for (int i = 0; i < thresholds.size(); i++) {
+			//	cdt_params[thresholds[i]] = std::vector<float>(0);
+			//	for (int j = 0; j < merges.size(); j++) {
+			//		cdt_params[thresholds[i]].push_back(merges[j] / merges[merges.size()-1] * thresholds[i]);
+			//	}
+			//}
+
+
+
 			float Tloop = 2.5f;
-			
-			
 			
 			PhotoLoop(fimg, mask, opacity_map, high, low, velocity_field, out_name, Tloop, argc, argv);
 			break;
@@ -752,7 +779,6 @@ int main(int argc, char **argv)
 			break;
 		}
 		}
-
 
 		std::cout << ++count << "images processed" << std::endl;
 	}

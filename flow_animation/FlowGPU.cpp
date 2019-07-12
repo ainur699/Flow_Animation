@@ -1,7 +1,8 @@
 #include "FlowGPU.h"
 #include <iostream>
 
-FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe): m_Tframe(Tframe) {
+FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr)
+: m_Tframe(Tframe), num_frames(num_fr), m_frame1(0), m_frame2(-num_fr), m_k(0), m_i(0){
 	m_width = high.cols;
 	m_height = high.rows;
 
@@ -11,37 +12,48 @@ FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv:
 	m_maxVal_frac = 1.f / maxVal;
 	
 	init(argc, argv, velocity, opacity, high, low);
+	glProgram.setUniform("high", 1);
+	glProgram.setUniform("low", 2); 
 	glProgram.setUniform("velocity_map", 3);
 	glProgram.setUniform("opacity_map", 4);
-	glProgram.setUniform("high", 1);
-	glProgram.setUniform("low", 2);
 	glProgram.setUniform("tframe", m_Tframe);
 	glProgram.setUniform("max_del", m_maxVal_frac);
 	glProgram.setUniform("viewPort", glm::vec2(1.f / (m_width - 1), 1.f / (m_height - 1)));
-
 }
 
-cv::Mat FlowGPU::display(float frame1, float frame2, float k) {
+
+void FlowGPU::updateSpeed(int Nloop, float Tframe) {
+	m_Tframe = Tframe;
+	if ((int)num_frames != Nloop) {
+		m_i /= num_frames;
+		m_i *= Nloop;
+		num_frames = Nloop;
+	}
+}
+
+cv::Mat FlowGPU::display() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	static const std::vector<float> positionData = {
-		-1, -1,
-		 1, -1,
-		 1,  1,
-		-1,  1
+		-1, -1, 1, -1,
+		1,  1, -1,  1
 	};
-	static const std::vector<float> textureData = {
-		0, 0,
-		1, 0,
-		1, 1,
-		0, 1,
+	static const std::vector<float> textureData = {	
+		0, 0, 1, 0,
+		1, 1, 0, 1,
 	};
 
 	glProgram.setAtribute(0, positionData, 2);
 	glProgram.setAtribute(1, textureData, 2);
-	glProgram.setUniform("frame1", frame1);
-	glProgram.setUniform("frame2", frame2);
-	glProgram.setUniform("k", k);
+	//i, -Nloop + i, 1.f / (Nloop - 1.f) * i
+	extern int trackbar_Var;
+	extern int trackbar_Tframe;
+	updateSpeed(trackbar_Var + 2, 1.f / trackbar_Tframe);
+	glProgram.setUniform("frame1", m_i);
+	glProgram.setUniform("frame2", -num_frames + m_i);
+	glProgram.setUniform("tframe", m_Tframe);
+	glProgram.setUniform("k", 1.f / (num_frames - 1.f) * m_i);
 	glProgram.draw(GL_QUADS, 0, positionData.size());
+	m_i = (int)(m_i + 1) % (int)num_frames;
 
 	cv::Mat frame(m_height, m_width, CV_32FC4);
 	glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);
@@ -80,11 +92,7 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 	glProgram.findUniformLocations();
 }
 
-#if defined( _WIN32 )
-#define ASSERT(x) if(!(x)) __debugbreak()
-#else
-#define ASSERT(x)
-#endif
+
 void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_channels) {
 	cv::Mat tx;
 	int ch = img.channels();
@@ -109,12 +117,11 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool switch_
 	else {
 		cv::cvtColor(tx, tx, cv::COLOR_RGB2RGBA);
 	}
-	ASSERT(tx.type() == 29);
+	ASSERT(tx.type() == 29);//CV_32FC4
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);
 	cv::flip(tx, tx, 0);
 	if (tx.type() == 29) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
-	//if (tx.type() == 24) tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR, GL_UNSIGNED_BYTE);
 	tex.bind(slot);
 }
 
