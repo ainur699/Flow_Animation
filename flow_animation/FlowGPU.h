@@ -11,7 +11,8 @@
 #include <thread>
 #include <mutex>
 #include <iostream>
-
+#include "NvEncoder/NvPipe.h"
+#include <fstream>
 #if defined( _WIN32 )
 #define ASSERT(x) if(!(x)) __debugbreak()
 #else
@@ -34,7 +35,7 @@ struct Timer {
 		for (int i = 0; i < 4; i++) ms[i] = 0.0;
 	}
 	~Timer() {
-		//end();
+		end();
 	}
 
 	void start() {
@@ -51,6 +52,7 @@ struct Timer {
 	float elapsed() {
 		duration = std::chrono::high_resolution_clock::now() - startp;
 		float ms = duration.count() * 1000.0f;
+		start();
 		return ms;
 	}
 
@@ -63,11 +65,11 @@ class FlowGPU
 {
 public:
 	FlowGPU() {}
-	~FlowGPU() {}
+	~FlowGPU() { NvPipe_Destroy(NVencoder); m_ofs.close(); }
 	FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr);
 	void setTexture(Texture2D& tex, cv::Mat& img, GLenum slot = GL_TEXTURE1, bool add_channels = true, bool switch_channels = true);
 	static cv::Mat _rendertestmask(cv::Mat& testimage);
-	cv::Mat display();
+	void display();
 	void init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low);
 	void updateSpeed(int Nloop, float Trame);
 private:
@@ -77,6 +79,11 @@ private:
 	Texture2D low_tex;
 	Texture2D velocity_tex1;
 	Texture2D opacity_tex1;
+	GLuint serverFBO;
+	GLuint serverColorTex;
+	NvPipe* NVencoder;
+	std::ofstream m_ofs;
+
 	std::vector<Texture2D>f_texs;
 
 	float m_Tframe, m_maxVal_frac;
@@ -156,7 +163,7 @@ private:
 	vec4 flow(float frame) {
 		vec2 cur = gl_FragCoord.xy;
 		ivec2 icur = ivec2(cur);
-		vec4 delta = -tframe * texture(velocity_map, TextCoord);
+		vec4 delta = tframe * texture(velocity_map, TextCoord);
 		vec2 xy = cur;
 		xy.x -= frame * delta[0];
 		xy.y -= frame * delta[1];

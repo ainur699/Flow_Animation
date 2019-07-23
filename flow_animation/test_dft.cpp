@@ -452,9 +452,9 @@ void FrequencyDec(const cv::Mat &fsrc, float threshold, float merge, cv::Mat &hi
 		//cv::imwrite("cdts/low" + std::to_string(i) + "_" + std::to_string(j) + ".png", low * 255);
 
 		cv::cvtColor(high, high, cv::COLOR_BGR2RGBA);
-		cv::flip(high, high, 0);
+		//cv::flip(high, high, 0);
 		cv::cvtColor(low, low, cv::COLOR_BGR2RGBA);
-		cv::flip(low, low, 0);
+		//cv::flip(low, low, 0);
 	}
 #endif
 }
@@ -580,6 +580,10 @@ int trackbar_cdt_threshold = 8;
 int trackbar_cdt_merge = 4;
 std::vector<std::vector<cdt_struct> > cdts(10, std::vector<cdt_struct>(10));;
 
+
+std::vector < std::vector<uint8_t> > g_frames;
+
+
 void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &field_map, std::string out_name, float Tloop,
 	int argc, char** argv)
 {
@@ -598,47 +602,12 @@ void PhotoLoop(cv::Mat &src, cv::Mat &mask, cv::Mat &opacity_map, cv::Mat &field
 	FlowGPU flowGpu(argc, argv, field_map, opacity_map, cur_cdt.high, cur_cdt.low, Tframe, Nloop);
 	//glutDisplayFunc(display);
 	//glutIdleFunc(display);
-
-#define __LOOP
-#ifndef __LOOP
-	for (int i = 0; i < Nloop; i++) {
-		std::cout << i + 1 << " of " << Nloop << std::endl;
-#else
-	//glutMainLoop();
-	int i = 0;
+	
+	static int i = 0;
 	while (true) {
-#endif
-		dst = flowGpu.display();
-#ifdef __LOOP
-		i = (i + 1) % (int)Nloop;
-#else
-		dst.convertTo(frame, CV_8UC3, 255.0);
-		video.push_back(frame.clone());
-#endif
+		flowGpu.display();
+		if (i++ > 250) break;
 	}
-
-	///init writer
-	VideoWriterMemory writer;
-	IVideo_Encoder *encoder = video_encoder_create();
-	encoder->Init(&writer, src.cols, src.rows, fps, 4000000);
-
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < video.size(); j++) {
-			unsigned char *p = video[j].ptr(0, 0);
-			encoder->Addframe(p, video[j].step, 1);
-		}
-	}
-
-	encoder->Finalize();
-	encoder->Destroy();
-
-	uchar *d;
-	size_t len;
-	writer.GetBuffer(d, len);
-	std::ofstream out(out_name, std::ios::binary);
-	out.write((char*)d, len);
-	out.close();
-	delete d;
 }
 
 
@@ -879,5 +848,6 @@ int main(int argc, char **argv)
 		std::cout << ++count << "images processed" << std::endl;
 	}
 
+	system("PAUSE");
 	return 0;
 }

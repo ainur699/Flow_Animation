@@ -14,7 +14,13 @@
     <ClCompile Include="render\Texture.cpp">
       <Filter>render</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\libraries\DLIB_LIB\dlib\all\source.cpp" />
+    <ClCompile Include="FlowGPU.cpp" />
+    <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoder.cpp">
+      <Filter>NvEncoder</Filter>
+    </ClCompile>
+    <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.cpp">
+      <Filter>NvEncoder</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ffmpeg">
@@ -22,6 +28,15 @@
     </Filter>
     <Filter Include="render">
       <UniqueIdentifier>{68085305-eb81-4d93-ad01-b98ab70c1685}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NvEncoder">
+      <UniqueIdentifier>{5ff5494a-fc7b-41aa-9686-157c0079c1ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NvEncoder\Utils">
+      <UniqueIdentifier>{ac225e4f-e342-4cf2-9184-adfa36800949}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NvEncoder\include">
+      <UniqueIdentifier>{af69f3a5-1735-4f8f-9897-d75b6ce4c35a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -40,5 +55,56 @@
     <ClInclude Include="render\Texture.hpp">
       <Filter>render</Filter>
     </ClInclude>
+    <ClInclude Include="FlowGPU.h" />
+    <ClInclude Include="NvEncoder\NvPipe.h">
+      <Filter>NvEncoder</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\ColorSpace.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\FFmpegDemuxer.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\FFmpegStreamer.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Logger.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\NvCodecUtils.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\NvEncoderCLIOptions.h">
+      <Filter>NvEncoder\Utils</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\cuviddec.h">
+      <Filter>NvEncoder\include</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\nvcuvid.h">
+      <Filter>NvEncoder\include</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\nvEncodeAPI.h">
+      <Filter>NvEncoder\include</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoder.h">
+      <Filter>NvEncoder</Filter>
+    </ClInclude>
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.h">
+      <Filter>NvEncoder</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="NvEncoder\NvPipe.cu">
+      <Filter>NvEncoder</Filter>
+    </None>
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\BitDepth.cu">
+      <Filter>NvEncoder\Utils</Filter>
+    </None>
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\ColorSpace.cu">
+      <Filter>NvEncoder\Utils</Filter>
+    </None>
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Resize.cu">
+      <Filter>NvEncoder\Utils</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.28307.539
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "flow_animation", "flow_animation\flow_animation.vcxproj", "{6D66397E-7C4D-42F2-8870-08908A0C7168}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "curl_lib", "curl_lib\curl_lib.vcxproj", "{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -23,13 +21,6 @@ Global
 		{6D66397E-7C4D-42F2-8870-08908A0C7168}.Release|x64.Build.0 = Release|x64
 		{6D66397E-7C4D-42F2-8870-08908A0C7168}.Release|x86.ActiveCfg = Release|Win32
 		{6D66397E-7C4D-42F2-8870-08908A0C7168}.Release|x86.Build.0 = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Debug|x64.ActiveCfg = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Debug|x64.Build.0 = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Debug|x86.ActiveCfg = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Debug|x86.Build.0 = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Release|x64.ActiveCfg = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Release|x86.ActiveCfg = Release|Win32
-		{DE0C9D00-48D8-41B2-8B69-2BF1F955D964}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -21,37 +21,38 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6D66397E-7C4D-42F2-8870-08908A0C7168}</ProjectGuid>
     <RootNamespace>flow_animation</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.1.props" />
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
@@ -74,7 +75,7 @@
       <WarningLevel>Level2</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(OPENCV_DIR)/include;$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING;_HAS_AUTO_PTR_ETC=1;AV_NOWARN_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
@@ -88,8 +89,15 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
+    <Link>
+      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -98,7 +106,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(OPENCV_DIR)/include;$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING;_HAS_AUTO_PTR_ETC=1;AV_NOWARN_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
@@ -116,34 +124,58 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\libraries\DLIB_LIB\dlib\all\source.cpp" />
     <ClCompile Include="ffmpeg\video_encoder_impl.cpp" />
     <ClCompile Include="ffmpeg\video_reader.cpp" />
+    <ClCompile Include="FlowGPU.cpp" />
+    <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoder.cpp" />
+    <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.cpp" />
     <ClCompile Include="render\GLSLProgram.cpp" />
     <ClCompile Include="render\Texture.cpp" />
     <ClCompile Include="test_dft.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\curl_lib\curl_lib.vcxproj">
-      <Project>{de0c9d00-48d8-41b2-8b69-2bf1f955d964}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="ffmpeg\video_encoder.h" />
     <ClInclude Include="ffmpeg\video_encoder_impl.h" />
     <ClInclude Include="ffmpeg\video_reader.h" />
+    <ClInclude Include="FlowGPU.h" />
+    <ClInclude Include="NvEncoder\NvPipe.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\cuviddec.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\nvcuvid.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\include\nvEncodeAPI.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoder.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\ColorSpace.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\FFmpegDemuxer.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\FFmpegStreamer.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Logger.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\NvCodecUtils.h" />
+    <ClInclude Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\NvEncoderCLIOptions.h" />
     <ClInclude Include="render\GLSLProgram.h" />
     <ClInclude Include="render\Texture.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="NvEncoder\NvPipe.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\BitDepth.cu" />
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\ColorSpace.cu" />
+    <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Resize.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 10.1.targets" />
   </ImportGroup>
 </Project>

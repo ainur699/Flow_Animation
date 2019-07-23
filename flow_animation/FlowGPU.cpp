@@ -1,6 +1,7 @@
 #include "FlowGPU.h"
 #include <iostream>
 
+
 FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr)
 : m_Tframe(Tframe), num_frames(num_fr), m_frame1(0), m_frame2(-num_fr), m_k(0), m_i(0){
 	m_width = high.cols;
@@ -19,6 +20,37 @@ FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv:
 	glProgram.setUniform("tframe", m_Tframe);
 	glProgram.setUniform("max_del", m_maxVal_frac);
 	glProgram.setUniform("viewPort", glm::vec2(1.f / (m_width - 1), 1.f / (m_height - 1)));
+
+	glGenTextures(1, &serverColorTex);
+	glBindTexture(GL_TEXTURE_2D, serverColorTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	/*GLuint serverDepthTex;
+	glGenTextures(1, &serverDepthTex);
+	glBindTexture(GL_TEXTURE_2D, serverDepthTex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+*/
+	glGenFramebuffers(1, &serverFBO);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, serverFBO);
+	glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, serverColorTex, 0);
+	//glFramebufferTexture(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, serverDepthTex, 0);
+
+	if (glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cerr << "Failed to create framebuffer" << std::endl;
+		exit(1);
+	}
+
+	const NvPipe_Codec codec = NVPIPE_H264;
+	const float bitrateMbps = 32;
+	const uint32_t targetFPS = 24;
+
+	NVencoder = NvPipe_CreateEncoder(NVPIPE_RGBA32, codec, NVPIPE_LOSSY, bitrateMbps * 1024 * 1024, targetFPS, m_width, m_height);
+	if (!NVencoder)
+		std::cerr << "Failed to create encoder: " << NvPipe_GetError(NULL) << std::endl;
+
+	m_ofs.open("testmov.mp4", std::ios::out | std::ios::binary);
+
 }
 
 
@@ -31,8 +63,10 @@ void FlowGPU::updateSpeed(int Nloop, float Tframe) {
 	}
 }
 
-cv::Mat FlowGPU::display() {
+void FlowGPU::display() {
 	Timer timer;
+	Timer timerAll;
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, serverFBO);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	static const std::vector<float> positionData = {
 		-1, -1, 1, -1,
@@ -74,12 +108,26 @@ cv::Mat FlowGPU::display() {
 	glProgram.draw(GL_QUADS, 0, positionData.size());
 	m_i = (int)(m_i + 1) % (int)num_frames;
 
-	cv::Mat frame(m_height, m_width, CV_32FC4);
-	glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);
-	glutSwapBuffers();
-	cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
-	cv::flip(frame, frame, 0);
-	return frame;
+	static std::vector<uint8_t> compressed(m_width * m_height * 4);
+
+	std::cout << "render time: " << timer.elapsed() << " ms\n";
+
+	uint64_t size = NvPipe_EncodeTexture(NVencoder, serverColorTex, GL_TEXTURE_2D, compressed.data(), compressed.size(), m_width, m_height, false);
+	
+	std::cout << "encode time: " << timer.elapsed() << " ms\n";
+
+	//extern std::vector<std::vector<uint8_t> > g_frames;
+	//compressed.resize(size);
+	//g_frames.push_back(compressed);
+	m_ofs.write((char*)& compressed[0], size);
+	std::cout << "write time: " << timer.elapsed() << " ms\n";
+
+	//cv::Mat frame(m_height, m_width, CV_32FC4);
+	//glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);
+	//glutSwapBuffers();
+	//cv::cvtColor(frame, frame, cv::COLOR_RGBA2BGR);
+	//cv::flip(frame, frame, 0);
+	//return frame;
 }
 
 
@@ -146,7 +194,7 @@ void FlowGPU::setTexture(Texture2D& tex, cv::Mat& img, GLenum slot, bool add_cha
 	ASSERT(tx.type() == 29);
 	ASSERT(tx.cols == m_width);
 	ASSERT(tx.rows == m_height);
-	cv::flip(tx, tx, 0);
+	//cv::flip(tx, tx, 0);
 	tex.createColorTexture(tx, GL_LINEAR, GL_LINEAR);
 	tex.bind(slot);
 }
