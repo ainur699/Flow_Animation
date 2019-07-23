@@ -121,6 +121,7 @@ void FlowGPU::display() {
 	//g_frames.push_back(compressed);
 	m_ofs.write((char*)& compressed[0], size);
 	std::cout << "write time: " << timer.elapsed() << " ms\n";
+	timerAll.end();
 
 	//cv::Mat frame(m_height, m_width, CV_32FC4);
 	//glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_FLOAT, frame.data);

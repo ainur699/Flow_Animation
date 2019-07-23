@@ -35,7 +35,7 @@ struct Timer {
 		for (int i = 0; i < 4; i++) ms[i] = 0.0;
 	}
 	~Timer() {
-		end();
+		//end();
 	}
 
 	void start() {
