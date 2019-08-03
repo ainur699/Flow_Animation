@@ -1,13 +1,7 @@
 #pragma once
-#include <GL/glew.h>
-#include <GL/glut.h>
-#include <GL/freeglut_ext.h>
+
 #include "render/GLSLProgram.h"
 #include "render/Texture.hpp"
-#include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/highgui.hpp>
 #include <thread>
 #include <mutex>
 #include <iostream>
@@ -18,6 +12,8 @@
 #else
 #define ASSERT(x)
 #endif
+#include <GL/glut.h>
+#include <GL/freeglut_ext.h>
 
 struct cdt_struct {
 	float maxdel;

@@ -941,7 +941,7 @@ static void suboption(struct connectdata *conn)
       snprintf((char *)temp, sizeof(temp),
                "%c%c%c%c%s%c%c", CURL_IAC, CURL_SB, CURL_TELOPT_TTYPE,
                CURL_TELQUAL_IS, tn->subopt_ttype, CURL_IAC, CURL_SE);
-      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, len);
+      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, (int)len);
       if(bytes_written < 0) {
         err = SOCKERRNO;
         failf(data,"Sending data failed (%d)",err);
@@ -953,7 +953,7 @@ static void suboption(struct connectdata *conn)
       snprintf((char *)temp, sizeof(temp),
                "%c%c%c%c%s%c%c", CURL_IAC, CURL_SB, CURL_TELOPT_XDISPLOC,
                CURL_TELQUAL_IS, tn->subopt_xdisploc, CURL_IAC, CURL_SE);
-      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, len);
+      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, (int)len);
       if(bytes_written < 0) {
         err = SOCKERRNO;
         failf(data,"Sending data failed (%d)",err);
@@ -981,7 +981,7 @@ static void suboption(struct connectdata *conn)
       snprintf((char *)&temp[len], sizeof(temp) - len,
                "%c%c", CURL_IAC, CURL_SE);
       len += 2;
-      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, len);
+      bytes_written = swrite(conn->sock[FIRSTSOCKET], temp, (int)len);
       if(bytes_written < 0) {
         err = SOCKERRNO;
         failf(data,"Sending data failed (%d)",err);

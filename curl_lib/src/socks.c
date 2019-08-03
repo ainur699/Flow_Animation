@@ -503,11 +503,11 @@ CURLcode Curl_SOCKS5(const char *proxy_name,
     socksreq[len++] = (unsigned char) proxy_name_len;
     if(proxy_name && proxy_name_len)
       memcpy(socksreq + len, proxy_name, proxy_name_len);
-    len += proxy_name_len;
+    len += (long)(proxy_name_len);
     socksreq[len++] = (unsigned char) proxy_password_len;
     if(proxy_password && proxy_password_len)
       memcpy(socksreq + len, proxy_password, proxy_password_len);
-    len += proxy_password_len;
+    len += (long)(proxy_password_len);
 
     code = Curl_write_plain(conn, sock, (char *)socksreq, len, &written);
     if(code || (len != written)) {
@@ -570,7 +570,7 @@ CURLcode Curl_SOCKS5(const char *proxy_name,
     socksreq[len++] = 3; /* ATYP: domain name = 3 */
     socksreq[len++] = (char) hostname_len; /* address length */
     memcpy(&socksreq[len], hostname, hostname_len); /* address str w/o NULL */
-    len += hostname_len;
+    len += (long)(hostname_len);
   }
   else {
     struct Curl_dns_entry *dns;

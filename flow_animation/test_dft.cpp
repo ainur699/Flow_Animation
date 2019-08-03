@@ -14,6 +14,10 @@
 #define __LOOP
 //#define __CPU
 
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+
 enum class Material
 {
 	WATER, HAIR, SKY, TREE
@@ -692,7 +696,7 @@ void reshape(int width, int height) {
 	glViewport(0, 0, (GLsizei)width, (GLsizei)height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60, (GLfloat)width / (GLfloat)height, 1.0, 100.0);
+	//gluPerspective(60, (GLfloat)width / (GLfloat)height, 1.0, 100.0);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -736,13 +740,14 @@ int main(int argc, char **argv)
 		}
 	}
 
-	std::filesystem::path dir("C:/Users/User/Desktop/flow_animation/hair");
+	std::filesystem::path dir("C:/GitHub/flow_animation/flow_animation/hair");
 	std::filesystem::directory_iterator it(dir), end;
 
 	std::thread(trackbar).detach();
 
 	for (int count = 0; it != end; it++) {
-		cv::Mat image = cv::imread(it->path().string());
+		std::string img_name = it->path().string();
+		cv::Mat image = cv::imread(img_name);
 		if (image.empty()) continue;
 
 #ifdef __GPU
@@ -755,6 +760,8 @@ int main(int argc, char **argv)
 		switch (material) {
 		case Material::HAIR:
 		{
+			cv::imwrite("debug.png", image);
+
 			std::vector<dlib::rectangle> faces_dlib = dlib_detector(dlib::cv_image<dlib::bgr_pixel>(image));
 			if (faces_dlib.empty()) continue;
 			dlib::full_object_detection	points = pose_model(dlib::cv_image<dlib::bgr_pixel>(image), faces_dlib[0]);

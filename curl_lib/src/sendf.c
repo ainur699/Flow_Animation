@@ -254,7 +254,7 @@ ssize_t Curl_send_plain(struct connectdata *conn, int num,
                         const void *mem, size_t len, CURLcode *code)
 {
   curl_socket_t sockfd = conn->sock[num];
-  ssize_t bytes_written = swrite(sockfd, mem, len);
+  ssize_t bytes_written = swrite(sockfd, mem, (int)len);
 
   *code = CURLE_OK;
   if(-1 == bytes_written) {
@@ -311,7 +311,7 @@ ssize_t Curl_recv_plain(struct connectdata *conn, int num, char *buf,
                         size_t len, CURLcode *code)
 {
   curl_socket_t sockfd = conn->sock[num];
-  ssize_t nread = sread(sockfd, buf, len);
+  ssize_t nread = sread(sockfd, buf, (int)len);
 
   *code = CURLE_OK;
   if(-1 == nread) {
@@ -516,7 +516,7 @@ CURLcode Curl_read_plain(curl_socket_t sockfd,
                          size_t bytesfromsocket,
                          ssize_t *n)
 {
-  ssize_t nread = sread(sockfd, buf, bytesfromsocket);
+  ssize_t nread = sread(sockfd, buf, (int)bytesfromsocket);
 
   if(-1 == nread) {
     int err = SOCKERRNO;

@@ -21,6 +21,10 @@
     <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.cpp">
       <Filter>NvEncoder</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\Users\Ainur\Desktop\libraries\DLIB_LIB\dlib\all\source.cpp" />
+    <ClCompile Include="render\glad.c">
+      <Filter>render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ffmpeg">
@@ -94,9 +98,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="NvEncoder\NvPipe.cu">
-      <Filter>NvEncoder</Filter>
-    </None>
     <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\BitDepth.cu">
       <Filter>NvEncoder\Utils</Filter>
     </None>
@@ -106,5 +107,8 @@
     <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Resize.cu">
       <Filter>NvEncoder\Utils</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="NvEncoder\NvPipe.cu" />
   </ItemGroup>
 </Project>

@@ -1,5 +1,9 @@
 #include "FlowGPU.h"
 #include <iostream>
+#include <opencv2/core.hpp>
+#include <opencv2/imgproc.hpp>
+//#include <opencv2/imgcodecs.hpp>
+//#include <opencv2/highgui.hpp>
 
 
 FlowGPU::FlowGPU(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, cv::Mat& high, cv::Mat& low, float Tframe, int num_fr)
@@ -136,12 +140,15 @@ void FlowGPU::init(int argc, char** argv, cv::Mat& velocity, cv::Mat& opacity, c
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA | GLUT_MULTISAMPLE);
 	glutInitWindowSize(m_width, m_height);
-	glViewport(0, 0, (GLsizei)m_width, (GLsizei)m_height);
 	glutCreateWindow("OpenGL Render");
-	if (GLEW_OK != glewInit()) {
+	
+	if (!gladLoadGL()) {
 		std::cout << "Couldn't initialize GLEW" << std::endl;
 		exit(0);
 	}
+
+
+
 	setTexture(high_tex, high, GL_TEXTURE1, false);
 	setTexture(low_tex, low, GL_TEXTURE2, false);
 	setTexture(velocity_tex1, velocity, GL_TEXTURE3, true, false);

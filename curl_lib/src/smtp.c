@@ -1615,7 +1615,7 @@ CURLcode Curl_smtp_escape_eob(struct connectdata *conn, const ssize_t nread)
     else if(smtp->eob) {
       /* A previous substring matched so output that first */
       memcpy(&scratch[si], &SMTP_EOB[eob_sent], smtp->eob - eob_sent);
-      si += smtp->eob - eob_sent;
+      si += (long)(smtp->eob - eob_sent);
 
       /* Then compare the first byte */
       if(SMTP_EOB[0] == data->req.upload_fromhere[i])
@@ -1634,7 +1634,7 @@ CURLcode Curl_smtp_escape_eob(struct connectdata *conn, const ssize_t nread)
       /* Copy the replacement data to the target buffer */
       memcpy(&scratch[si], &SMTP_EOB_REPL[eob_sent],
              SMTP_EOB_REPL_LEN - eob_sent);
-      si += SMTP_EOB_REPL_LEN - eob_sent;
+      si += (long)(SMTP_EOB_REPL_LEN - eob_sent);
       smtp->eob = 0;
       eob_sent = 0;
     }
@@ -1645,7 +1645,7 @@ CURLcode Curl_smtp_escape_eob(struct connectdata *conn, const ssize_t nread)
   if(smtp->eob - eob_sent) {
     /* A substring matched before processing ended so output that now */
     memcpy(&scratch[si], &SMTP_EOB[eob_sent], smtp->eob - eob_sent);
-    si += smtp->eob - eob_sent;
+    si += (long)(smtp->eob - eob_sent);
   }
 
   /* Only use the new buffer if we replaced something */

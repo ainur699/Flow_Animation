@@ -1,6 +1,6 @@
 #include "GLSLProgram.h"
-
 #include <fstream>
+
 
 using std::ifstream;
 using std::ios;
@@ -76,8 +76,6 @@ void GLSLProgram::createContex(HWND hWnd) {
 	hglrc = wglCreateContext(hdc);
 	if (hglrc == NULL) throw GLSLProgramException("Can't create contex");
 	if (!wglMakeCurrent(hdc, hglrc)) throw GLSLProgramException("Can't make contex current");
-	
-	if (GLEW_OK != glewInit()) throw GLSLProgramException("Couldn't initialize GLEW");
 }
 
 void GLSLProgram::compileShader(const char *fileName) {

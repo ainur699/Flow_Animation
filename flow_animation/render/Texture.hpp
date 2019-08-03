@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include <opencv2/core.hpp>
-#include <GL/glew.h>
+extern "C"
+{
+	#include "glad.h"
+}
 
 
 //-----------------------------------------------------------------------------

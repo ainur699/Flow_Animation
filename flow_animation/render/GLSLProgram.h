@@ -4,13 +4,16 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <Windows.h>
-#include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <string>
 #include <map>
 #include <vector>
 #include <stdexcept>
 
+extern "C"
+{
+#include "glad.h"
+}
 
 class GLSLProgramException : public std::runtime_error {
 public:

@@ -184,6 +184,7 @@ curl_off_t curlx_uztoso(size_t uznum)
 #  pragma warning(push)
 #  pragma warning(disable:810) /* conversion may lose significant bits */
 #endif
+# pragma warning(disable:4310)
 
   DEBUGASSERT(uznum <= (size_t) CURL_MASK_SCOFFT);
   return (curl_off_t)(uznum & (size_t) CURL_MASK_SCOFFT);

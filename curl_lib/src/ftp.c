@@ -758,7 +758,7 @@ CURLcode Curl_GetFTPResponse(ssize_t *nreadp, /* return number of bytes read */
          counter */
       cache_skip=0;
 
-    *nreadp += nread;
+    *nreadp += (long)(nread);
 
   } /* while there's buffer left and loop is requested */
 
@@ -4318,7 +4318,7 @@ CURLcode ftp_parse_url_path(struct connectdata *conn)
           /* we skip empty path components, like "x//y" since the FTP command
              CWD requires a parameter and a non-existent parameter a) doesn't
              work on many servers and b) has no effect on the others. */
-          int len = curlx_sztosi(slash_pos - cur_pos + absolute_dir);
+          int len = curlx_sztosi((long)(slash_pos - cur_pos + absolute_dir));
           ftpc->dirs[ftpc->dirdepth] =
             curl_easy_unescape(conn->data, cur_pos - absolute_dir, len, NULL);
           if(!ftpc->dirs[ftpc->dirdepth]) { /* run out of memory ... */

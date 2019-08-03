@@ -21,32 +21,32 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6D66397E-7C4D-42F2-8870-08908A0C7168}</ProjectGuid>
     <RootNamespace>flow_animation</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -75,13 +75,13 @@
       <WarningLevel>Level2</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;$(FFMPEGx32_DIR)\include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)\include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB);$(OPENCVx32_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING;_HAS_AUTO_PTR_ETC=1;AV_NOWARN_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>Ws2_32.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;glew32.lib;glu32.lib;freeglut.lib;opencv_core310d.lib;opencv_highgui310d.lib;opencv_imgproc310d.lib;opencv_imgcodecs310d.lib;opencv_videoio310d.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OPENCV_DIR);$(FFMPEG_DIR);$(GLEW_DIR);$(FREEGLUT_DIR);</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;Ws2_32.lib;avcodec_x32.lib;avformat_x32.lib;avutil_x32.lib;swresample_x32.lib;swscale_x32.lib;glew32.lib;glu32.lib;freeglut.lib;opencv_core310d_x32.lib;opencv_highgui310d_x32.lib;opencv_imgproc310d_x32.lib;opencv_imgcodecs310d_x32.lib;opencv_videoio310d_x32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OPENCVx32_DIR);$(FFMPEGx32_DIR);$(GLEW_DIR);$(FREEGLUT_DIR)\lib\x64;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\Win32</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -90,13 +90,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;$(FFMPEG_DIR)\include;$(SolutionDir)curl_lib\include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB);$(OPENCV_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;_HAS_AUTO_PTR_ETC=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;cudart_static.lib;cuda.lib;nvcuvid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;freeglut.lib;opencv_world310d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;$(OPENCV_DIR);$(FFMPEG_DIR);$(FREEGLUT_DIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -106,15 +106,15 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(FFMPEG_DIR)/include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)/include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;$(FFMPEGx32_DIR)\include;$(SolutionDir)curl_lib\include;$(GLEW_DIR)\include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB);$(OPENCVx32_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;_SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING;_HAS_AUTO_PTR_ETC=1;AV_NOWARN_DEPRECATED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>Ws2_32.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;glew32.lib;glu32.lib;freeglut.lib;opencv_core310.lib;opencv_highgui310.lib;opencv_imgproc310.lib;opencv_imgcodecs310.lib;opencv_videoio310.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OPENCV_DIR);$(FFMPEG_DIR);$(GLEW_DIR);$(FREEGLUT_DIR);</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;Ws2_32.lib;avcodec_x32.lib;avformat_x32.lib;avutil_x32.lib;swresample_x32.lib;swscale_x32.lib;glew32.lib;glu32.lib;freeglut.lib;opencv_core310_x32.lib;opencv_highgui310_x32.lib;opencv_imgproc310_x32.lib;opencv_imgcodecs310_x32.lib;opencv_videoio310_x32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OPENCVx32_DIR);$(FFMPEGx32_DIR);$(GLEW_DIR);$(FREEGLUT_DIR)\lib\x64;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\Win32</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
   </ItemDefinitionGroup>
@@ -125,23 +125,25 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder;$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\include;$(FFMPEG_DIR)\include;$(SolutionDir)curl_lib\include;$(FREEGLUT_DIR)\include;$(GLM_DIR);$(DLIB_LIB);$(OPENCV_DIR)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;FREEGLUT_LIB_PRAGMAS=0;_HAS_AUTO_PTR_ETC=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>cudart_static.lib;cuda.lib;nvcuvid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Github\hair_animation\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;cudart_static.lib;cuda.lib;nvcuvid.lib;Ws2_32.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;glu32.lib;freeglut.lib;opencv_world310.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\flow_animation\NvEncoder\Video_Codec_SDK_9.0.20\Lib\x64;$(OPENCV_DIR);$(FFMPEG_DIR);$(FREEGLUT_DIR);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\Users\Ainur\Desktop\libraries\DLIB_LIB\dlib\all\source.cpp" />
     <ClCompile Include="ffmpeg\video_encoder_impl.cpp" />
     <ClCompile Include="ffmpeg\video_reader.cpp" />
     <ClCompile Include="FlowGPU.cpp" />
     <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoder.cpp" />
     <ClCompile Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\NvCodec\NvEncoder\NvEncoderCuda.cpp" />
+    <ClCompile Include="render\glad.c" />
     <ClCompile Include="render\GLSLProgram.cpp" />
     <ClCompile Include="render\Texture.cpp" />
     <ClCompile Include="test_dft.cpp" />
@@ -173,6 +175,11 @@
     <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\BitDepth.cu" />
     <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\ColorSpace.cu" />
     <None Include="NvEncoder\Video_Codec_SDK_9.0.20\Samples\Utils\Resize.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\curl_lib\curl_lib.vcxproj">
+      <Project>{de0c9d00-48d8-41b2-8b69-2bf1f955d964}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
